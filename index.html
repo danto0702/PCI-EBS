@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PCI App – ESE Hospital Regional Noroccidental</title>
+  <meta name="description" content="Planes de Cuidado Individual por Ciclo Vital – Resolución 3280" />
+  <meta name="theme-color" content="#0f4c81" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PCI App" />
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- Apple Touch Icons (reemplazar con íconos reales) -->
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            hospital: {
+              50:  '#eff6ff',
+              100: '#dbeafe',
+              500: '#2563eb',
+              600: '#1d4ed8',
+              700: '#1e40af',
+              800: '#1e3a8a',
+              900: '#0f4c81',
+            }
+          },
+          fontFamily: {
+            sans: ['"Source Sans 3"', 'system-ui', 'sans-serif'],
+            display: ['"Libre Baskerville"', 'Georgia', 'serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --col-med:   #bfdbfe; /* azul – Medicina General */
+      --col-enf:   #fef08a; /* amarillo – Enfermería */
+      --col-psi:   #e9d5ff; /* morado – Psicología */
+      --col-odo:   #fed7aa; /* naranja – Odontología */
+      --col-nut:   #fecaca; /* rojo – Nutrición */
+      --col-aux:   #bbf7d0; /* verde – Auxiliares */
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Source Sans 3', system-ui, sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+    }
+
+    .header-gradient {
+      background: linear-gradient(135deg, #0f4c81 0%, #1e40af 50%, #1d4ed8 100%);
+    }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #475569;
+      margin-bottom: 4px;
+    }
+
+    .form-input {
+      width: 100%;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      background: #fafafa;
+      transition: border-color .15s, box-shadow .15s;
+      color: #1e293b;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #2563eb;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+    }
+
+    .form-input:disabled {
+      background: #f1f5f9;
+      color: #94a3b8;
+    }
+
+    /* Intervenciones */
+    .intervencion-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      transition: background .1s;
+      cursor: pointer;
+    }
+
+    .intervencion-item:hover { background: #f8fafc; }
+
+    .intervencion-item input[type="checkbox"] {
+      width: 17px;
+      height: 17px;
+      cursor: pointer;
+      accent-color: #2563eb;
+      flex-shrink: 0;
+    }
+
+    .intervencion-item label {
+      font-size: 0.875rem;
+      color: #334155;
+      cursor: pointer;
+      line-height: 1.4;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Badges de profesional */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      opacity: 0;
+      transition: all .35s cubic-bezier(.34,1.56,.64,1);
+      z-index: 9999;
+      white-space: nowrap;
+    }
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Status bar */
+    #status-bar {
+      transition: all .3s;
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Section header */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+
+    .section-number {
+      width: 28px; height: 28px;
+      background: #0f4c81;
+      color: white;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    /* Grupo de intervenciones por profesional */
+    .prof-group { margin-bottom: 16px; }
+    .prof-group-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 4px 10px;
+      border-radius: 6px;
+      margin-bottom: 4px;
+      display: inline-block;
+    }
+
+    /* Offline badge */
+    .pending-badge {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fcd34d;
+      border-radius: 9999px;
+      padding: 2px 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    @media (max-width: 640px) {
+      .card { border-radius: 8px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header-gradient text-white shadow-lg sticky top-0 z-40">
+  <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+      </div>
+      <div>
+        <div class="font-display font-bold text-sm leading-tight">PCI App</div>
+        <div class="text-blue-200 text-xs leading-tight">ESE Hospital Noroccidental</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <!-- Status online/offline -->
+      <div id="status-bar" class="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1">
+        <div id="status-dot" class="w-2 h-2 rounded-full bg-green-400"></div>
+        <span id="status-text" class="text-xs font-medium">En línea</span>
+      </div>
+      <!-- Pending count -->
+      <button id="btn-sync" onclick="syncPendingRecords()" class="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 transition text-xs font-medium" title="Sincronizar pendientes">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        <span id="pending-count">0 pendientes</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- MAIN -->
+<main class="max-w-4xl mx-auto px-4 py-6 space-y-6">
+
+  <!-- TÍTULO -->
+  <div class="card p-5">
+    <h1 class="font-display text-xl font-bold text-slate-800">Plan de Cuidado Individual</h1>
+    <p class="text-slate-500 text-sm mt-1">Resolución 3280 de 2018 · Ciclos Vitales · Versión 4.0 – Enero 2024</p>
+  </div>
+
+  <!-- FORMULARIO -->
+  <form id="pci-form" novalidate>
+
+    <!-- SECCIÓN 1: DATOS SOCIODEMOGRÁFICOS -->
+    <div class="card p-6 mb-6">
+      <div class="section-header">
+        <div class="section-number">1</div>
+        <div>
+          <h2 class="font-semibold text-slate-800 text-base">Datos Sociodemográficos</h2>
+          <p class="text-slate-400 text-xs">Información básica del paciente</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+
+        <div>
+          <label class="form-label" for="fecha_atencion">Fecha de Atención *</label>
+          <input class="form-input" type="date" id="fecha_atencion" name="fecha_atencion" required />
+        </div>
+
+        <div>
+          <label class="form-label" for="eps">EPS *</label>
+          <select class="form-input" id="eps" name="eps" required>
+            <option value="">Seleccionar...</option>
+            <option>Cajacopi</option>
+            <option>Coosalud</option>
+            <option>Mutual Ser</option>
+            <option>Nueva EPS</option>
+            <option>Salud Total</option>
+            <option>Sanitas</option>
+            <option>Sura</option>
+            <option>Compensar</option>
+            <option>Famisanar</option>
+            <option>Asmet Salud</option>
+            <option>Capresoca</option>
+            <option>Emdisalud</option>
+            <option>Sisben / Sin EPS</option>
+            <option>Otro</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="form-label" for="municipio">Municipio *</label>
+          <select class="form-input" id="municipio" name="municipio" required>
+            <option value="">Seleccionar...</option>
+            <option>Ábrego</option>
+            <option>El Carmen</option>
+            <option>Convención</option>
+            <option>Teorama</option>
+          </select>
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="form-label" for="nombre_apellido">Nombre y Apellido *</label>
+          <input class="form-input" type="text" id="nombre_apellido" name="nombre_apellido" placeholder="Nombre completo del paciente" required />
+        </div>
+
+        <div>
+          <label class="form-label" for="documento">Documento de Identidad *</label>
+          <input class="form-input" type="number" id="documento" name="documento" placeholder="Número de documento" required />
+        </div>
+
+        <div>
+          <label class="form-label" for="fecha_nacimiento">Fecha de Nacimiento *</label>
+          <input class="form-input" type="date" id="fecha_nacimiento" name="fecha_nacimiento" required oninput="calcularEdad()" />
+        </div>
+
+        <div>
+          <label class="form-label" for="edad">Edad (calculada)</label>
+          <input class="form-input" type="text" id="edad" name="edad" placeholder="Auto-calculada" disabled />
+        </div>
+
+        <div>
+          <label class="form-label" for="celular">Celular</label>
+          <input class="form-input" type="number" id="celular" name="celular" placeholder="3XX XXX XXXX" />
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="form-label" for="direccion">Dirección</label>
+          <input class="form-input" type="text" id="direccion" name="direccion" placeholder="Dirección de residencia" />
+        </div>
+
+        <div>
+          <label class="form-label" for="codigo_microterritorio">Código Microterritorio</label>
+          <input class="form-input" type="text" id="codigo_microterritorio" name="codigo_microterritorio" placeholder="Ej: MIC-001" />
+        </div>
+
+        <div>
+          <label class="form-label" for="codigo_familia">Código Familia</label>
+          <input class="form-input" type="text" id="codigo_familia" name="codigo_familia" placeholder="Ej: FAM-0001" />
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SECCIÓN 2: PLAN DE CUIDADO -->
+    <div class="card p-6 mb-6">
+      <div class="section-header">
+        <div class="section-number">2</div>
+        <div>
+          <h2 class="font-semibold text-slate-800 text-base">Plan de Cuidado Individual</h2>
+          <p class="text-slate-400 text-xs">Ruta de Atención por Ciclo Vital – Res. 3280/2018</p>
+        </div>
+      </div>
+
+      <div class="mb-6">
+        <label class="form-label" for="ciclo_vital">Ciclo Vital *</label>
+        <select class="form-input max-w-sm" id="ciclo_vital" name="ciclo_vital" required onchange="renderIntervenciones()">
+          <option value="">Seleccionar ciclo vital...</option>
+          <option value="primera_infancia">🍼 Primera Infancia (1 mes – 5 años)</option>
+          <option value="infancia">🧒 Infancia (6 – 11 años)</option>
+          <option value="adolescencia">🧑 Adolescencia (12 – 17 años)</option>
+          <option value="juventud">👤 Juventud (18 – 28 años)</option>
+          <option value="adultez">🧑‍💼 Adultez (29 – 59 años)</option>
+          <option value="vejez">👴 Vejez (60+ años)</option>
+          <option value="materno_perinatal">🤰 Ruta Materno Perinatal</option>
+        </select>
+      </div>
+
+      <!-- Leyenda de colores -->
+      <div id="leyenda" class="hidden mb-5 flex flex-wrap gap-3">
+        <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-med)"></div><span class="text-xs text-slate-600">Medicina General</span></div>
+        <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-enf)"></div><span class="text-xs text-slate-600">Enfermería</span></div>
+        <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-psi)"></div><span class="text-xs text-slate-600">Psicología</span></div>
+        <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-odo)"></div><span class="text-xs text-slate-600">Odontología</span></div>
+        <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-nut)"></div><span class="text-xs text-slate-600">Nutrición</span></div>
+        <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-aux)"></div><span class="text-xs text-slate-600">Auxiliares Enf.</span></div>
+      </div>
+
+      <!-- Contenedor dinámico de intervenciones -->
+      <div id="intervenciones-container">
+        <div class="flex flex-col items-center justify-center py-12 text-slate-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mb-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+          <p class="text-sm">Seleccione un ciclo vital para ver las intervenciones</p>
+        </div>
+      </div>
+
+      <!-- Otras intervenciones -->
+      <div id="otras-container" class="hidden mt-4 pt-4 border-t border-slate-100">
+        <label class="form-label" for="otras_intervenciones">Otras Intervenciones Necesarias</label>
+        <textarea class="form-input" id="otras_intervenciones" name="otras_intervenciones" rows="3" placeholder="Describa otras intervenciones realizadas..."></textarea>
+      </div>
+
+    </div>
+
+    <!-- ACCIONES -->
+    <div class="card p-5 flex flex-col sm:flex-row gap-3 items-center justify-between">
+      <div class="text-slate-400 text-xs">
+        Los registros se guardan localmente y se sincronizan cuando haya conexión.
+      </div>
+      <div class="flex gap-3">
+        <button type="button" onclick="limpiarFormulario()" class="px-5 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition">
+          Limpiar
+        </button>
+        <button type="submit" id="btn-guardar" class="px-6 py-2.5 rounded-xl bg-hospital-800 text-white font-semibold text-sm hover:bg-hospital-900 transition shadow flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+          Guardar Registro
+        </button>
+      </div>
+    </div>
+
+  </form>
+
+  <!-- HISTORIAL LOCAL -->
+  <div class="card p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-slate-800">Registros Locales</h3>
+      <span id="registros-count" class="pending-badge">0 registros</span>
+    </div>
+    <div id="historial-container">
+      <p class="text-slate-400 text-sm text-center py-6">No hay registros almacenados localmente.</p>
+    </div>
+  </div>
+
+</main>
+
+<!-- TOAST -->
+<div id="toast" class="bg-slate-800 text-white text-sm px-5 py-3 rounded-full shadow-xl flex items-center gap-2">
+  <span id="toast-icon">✓</span>
+  <span id="toast-msg">Guardado correctamente</span>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
