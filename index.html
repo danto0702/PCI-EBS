@@ -9,439 +9,508 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="PCI App" />
-
-  <!-- PWA Manifest -->
   <link rel="manifest" href="manifest.json" />
-
-  <!-- Apple Touch Icons (reemplazar con íconos reales) -->
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
-
-  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          colors: {
-            hospital: {
-              50:  '#eff6ff',
-              100: '#dbeafe',
-              500: '#2563eb',
-              600: '#1d4ed8',
-              700: '#1e40af',
-              800: '#1e3a8a',
-              900: '#0f4c81',
-            }
-          },
-          fontFamily: {
-            sans: ['"Source Sans 3"', 'system-ui', 'sans-serif'],
-            display: ['"Libre Baskerville"', 'Georgia', 'serif'],
-          }
+          colors: { hospital: { 50:'#eff6ff',100:'#dbeafe',500:'#2563eb',600:'#1d4ed8',700:'#1e40af',800:'#1e3a8a',900:'#0f4c81' } },
+          fontFamily: { sans:['"Source Sans 3"','system-ui','sans-serif'], display:['"Libre Baskerville"','Georgia','serif'] }
         }
       }
     }
   </script>
-
-  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-
   <style>
-    :root {
-      --col-med:   #bfdbfe; /* azul – Medicina General */
-      --col-enf:   #fef08a; /* amarillo – Enfermería */
-      --col-psi:   #e9d5ff; /* morado – Psicología */
-      --col-odo:   #fed7aa; /* naranja – Odontología */
-      --col-nut:   #fecaca; /* rojo – Nutrición */
-      --col-aux:   #bbf7d0; /* verde – Auxiliares */
-    }
+    :root { --col-med:#bfdbfe;--col-enf:#fef08a;--col-psi:#e9d5ff;--col-odo:#fed7aa;--col-nut:#fecaca;--col-aux:#bbf7d0; }
+    * { box-sizing:border-box; }
+    body { font-family:'Source Sans 3',system-ui,sans-serif; background:#f0f4f8; min-height:100vh; }
 
-    * { box-sizing: border-box; }
+    .view { display:none; }
+    .view.active { display:block; }
 
-    body {
-      font-family: 'Source Sans 3', system-ui, sans-serif;
-      background: #f0f4f8;
-      min-height: 100vh;
-    }
+    /* LOGIN */
+    #view-login { min-height:100vh; background:linear-gradient(145deg,#0f4c81 0%,#1e3a8a 40%,#1e40af 100%); display:none; align-items:center; justify-content:center; }
+    #view-login.active { display:flex; }
+    .login-card { background:white; border-radius:20px; box-shadow:0 20px 60px rgba(0,0,0,.3); width:100%; max-width:420px; margin:24px; overflow:hidden; }
+    .login-header { background:linear-gradient(135deg,#0f4c81,#1e40af); padding:32px 32px 24px; text-align:center; color:white; }
 
-    .header-gradient {
-      background: linear-gradient(135deg, #0f4c81 0%, #1e40af 50%, #1d4ed8 100%);
-    }
+    /* COMMON */
+    .header-gradient { background:linear-gradient(135deg,#0f4c81 0%,#1e40af 50%,#1d4ed8 100%); }
+    .card { background:white; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.06); }
+    .form-label { display:block; font-size:.75rem; font-weight:600; text-transform:uppercase; letter-spacing:.05em; color:#475569; margin-bottom:4px; }
+    .form-input { width:100%; border:1.5px solid #e2e8f0; border-radius:8px; padding:8px 12px; font-size:.9rem; font-family:inherit; background:#fafafa; transition:border-color .15s,box-shadow .15s; color:#1e293b; }
+    .form-input:focus { outline:none; border-color:#2563eb; background:white; box-shadow:0 0 0 3px rgba(37,99,235,.12); }
+    .form-input:disabled { background:#f1f5f9; color:#94a3b8; }
 
-    .card {
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
-    }
+    /* INTERVENCIONES */
+    .intervencion-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; transition:background .1s; cursor:pointer; }
+    .intervencion-item:hover { background:#f8fafc; }
+    .intervencion-item input[type="checkbox"] { width:17px; height:17px; cursor:pointer; accent-color:#2563eb; flex-shrink:0; }
+    .intervencion-item label { font-size:.875rem; color:#334155; cursor:pointer; line-height:1.4; }
+    .dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
 
-    .form-label {
-      display: block;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #475569;
-      margin-bottom: 4px;
-    }
+    /* SECTION */
+    .section-header { display:flex; align-items:center; gap:10px; margin-bottom:20px; padding-bottom:12px; border-bottom:2px solid #e2e8f0; }
+    .section-number { width:28px; height:28px; background:#0f4c81; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:700; flex-shrink:0; }
+    .prof-group { margin-bottom:16px; }
+    .prof-group-title { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; padding:4px 10px; border-radius:6px; margin-bottom:4px; display:inline-block; }
 
-    .form-input {
-      width: 100%;
-      border: 1.5px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 8px 12px;
-      font-size: 0.9rem;
-      font-family: inherit;
-      background: #fafafa;
-      transition: border-color .15s, box-shadow .15s;
-      color: #1e293b;
-    }
+    /* BADGES */
+    .badge { display:inline-flex; align-items:center; gap:4px; padding:2px 10px; border-radius:9999px; font-size:.7rem; font-weight:700; }
+    .badge-admin   { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+    .badge-usuario { background:#dbeafe; color:#1e40af; border:1px solid #93c5fd; }
+    .badge-activo  { background:#dcfce7; color:#14532d; border:1px solid #86efac; }
+    .badge-inactivo{ background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+    .pending-badge { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; border-radius:9999px; padding:2px 10px; font-size:.72rem; font-weight:600; }
 
-    .form-input:focus {
-      outline: none;
-      border-color: #2563eb;
-      background: white;
-      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
-    }
+    /* TOAST */
+    #toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); opacity:0; transition:all .35s cubic-bezier(.34,1.56,.64,1); z-index:9999; white-space:nowrap; }
+    #toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
 
-    .form-input:disabled {
-      background: #f1f5f9;
-      color: #94a3b8;
-    }
+    /* MODAL */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(2px); }
+    .modal-box { background:white; border-radius:16px; width:100%; max-width:520px; box-shadow:0 20px 60px rgba(0,0,0,.25); max-height:90vh; overflow-y:auto; }
+    .modal-hidden { display:none; }
 
-    /* Intervenciones */
-    .intervencion-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 12px;
-      border-radius: 8px;
-      transition: background .1s;
-      cursor: pointer;
-    }
+    /* TABLA */
+    .table-admin { width:100%; border-collapse:collapse; font-size:.85rem; }
+    .table-admin th { background:#0f4c81; color:white; padding:10px 12px; text-align:left; font-weight:600; font-size:.75rem; text-transform:uppercase; letter-spacing:.04em; }
+    .table-admin td { padding:10px 12px; border-bottom:1px solid #f1f5f9; color:#334155; vertical-align:middle; }
+    .table-admin tr:hover td { background:#f8fafc; }
+    .table-admin tr:last-child td { border-bottom:none; }
 
-    .intervencion-item:hover { background: #f8fafc; }
+    /* SPINNER */
+    .spinner { width:18px; height:18px; border:2px solid rgba(255,255,255,.4); border-top-color:white; border-radius:50%; animation:spin .7s linear infinite; display:inline-block; }
+    @keyframes spin { to { transform:rotate(360deg); } }
 
-    .intervencion-item input[type="checkbox"] {
-      width: 17px;
-      height: 17px;
-      cursor: pointer;
-      accent-color: #2563eb;
-      flex-shrink: 0;
-    }
+    /* TABS */
+    .tab-btn { padding:8px 16px; border-radius:8px; font-size:.85rem; font-weight:600; transition:all .15s; color:rgba(255,255,255,.6); border:none; cursor:pointer; background:transparent; }
+    .tab-btn.active { background:rgba(255,255,255,.2); color:white; }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
 
-    .intervencion-item label {
-      font-size: 0.875rem;
-      color: #334155;
-      cursor: pointer;
-      line-height: 1.4;
-    }
-
-    .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-
-    /* Badges de profesional */
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 0.7rem; font-weight: 600; }
-
-    /* Toast */
-    #toast {
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%) translateY(80px);
-      opacity: 0;
-      transition: all .35s cubic-bezier(.34,1.56,.64,1);
-      z-index: 9999;
-      white-space: nowrap;
-    }
-    #toast.show {
-      transform: translateX(-50%) translateY(0);
-      opacity: 1;
-    }
-
-    /* Status bar */
-    #status-bar {
-      transition: all .3s;
-    }
-
-    /* Spinner */
-    .spinner {
-      width: 18px; height: 18px;
-      border: 2px solid rgba(255,255,255,.4);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin .7s linear infinite;
-      display: inline-block;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* Section header */
-    .section-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
-      padding-bottom: 12px;
-      border-bottom: 2px solid #e2e8f0;
-    }
-
-    .section-number {
-      width: 28px; height: 28px;
-      background: #0f4c81;
-      color: white;
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.8rem;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
-
-    /* Grupo de intervenciones por profesional */
-    .prof-group { margin-bottom: 16px; }
-    .prof-group-title {
-      font-size: 0.7rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      padding: 4px 10px;
-      border-radius: 6px;
-      margin-bottom: 4px;
-      display: inline-block;
-    }
-
-    /* Offline badge */
-    .pending-badge {
-      background: #fef3c7;
-      color: #92400e;
-      border: 1px solid #fcd34d;
-      border-radius: 9999px;
-      padding: 2px 10px;
-      font-size: 0.72rem;
-      font-weight: 600;
-    }
-
-    @media (max-width: 640px) {
-      .card { border-radius: 8px; }
-    }
+    @media (max-width:640px) { .card { border-radius:8px; } }
   </style>
 </head>
 <body>
 
-<!-- HEADER -->
-<header class="header-gradient text-white shadow-lg sticky top-0 z-40">
-  <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+<!-- ══════════════════════════════════════════════════
+  VISTA LOGIN
+══════════════════════════════════════════════════ -->
+<div id="view-login" class="view active">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-9 h-9" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+        </svg>
       </div>
-      <div>
-        <div class="font-display font-bold text-sm leading-tight">PCI App</div>
-        <div class="text-blue-200 text-xs leading-tight">ESE Hospital Noroccidental</div>
+      <h1 class="font-display font-bold text-xl">PCI App</h1>
+      <p class="text-blue-200 text-sm mt-1">ESE Hospital Regional Noroccidental</p>
+      <p class="text-blue-300 text-xs mt-0.5">Resolución 3280 · Ciclos Vitales</p>
+    </div>
+    <div class="p-8">
+      <h2 class="font-semibold text-slate-700 text-base mb-6 text-center">Iniciar sesión</h2>
+      <form id="form-login" novalidate>
+        <div class="mb-4">
+          <label class="form-label" for="login-usuario">Usuario</label>
+          <input class="form-input" type="text" id="login-usuario" autocomplete="username" placeholder="Nombre de usuario" required />
+        </div>
+        <div class="mb-6 relative">
+          <label class="form-label" for="login-password">Contraseña</label>
+          <input class="form-input pr-10" type="password" id="login-password" autocomplete="current-password" placeholder="••••••••" required />
+          <button type="button" onclick="togglePwd('login-password')" class="absolute right-3 top-8 text-slate-400 hover:text-slate-600 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          </button>
+        </div>
+        <div id="login-error" class="hidden bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4 text-red-700 text-sm"></div>
+        <button type="submit" id="btn-login" class="w-full bg-hospital-800 hover:bg-hospital-900 text-white font-semibold py-3 rounded-xl transition flex items-center justify-center gap-2">
+          Ingresar
+        </button>
+      </form>
+      <p class="text-center text-slate-400 text-xs mt-6">Acceso restringido · Personal autorizado</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+  VISTA PRINCIPAL (Usuario + Admin comparten header)
+══════════════════════════════════════════════════ -->
+<div id="view-app" class="view">
+
+  <!-- HEADER -->
+  <header class="header-gradient text-white shadow-lg sticky top-0 z-40">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+        </div>
+        <div>
+          <div class="font-display font-bold text-sm leading-tight">PCI App</div>
+          <div class="text-blue-200 text-xs leading-tight">ESE Hospital Noroccidental</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div id="status-bar" class="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1">
+          <div id="status-dot" class="w-2 h-2 rounded-full bg-green-400"></div>
+          <span id="status-text" class="text-xs font-medium">En línea</span>
+        </div>
+        <button id="btn-sync" onclick="syncPendingRecords()" class="hidden items-center gap-1.5 bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 transition text-xs font-medium" title="Sincronizar">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          <span id="pending-count">0 pend.</span>
+        </button>
+        <div class="hidden sm:flex flex-col items-end">
+          <span id="header-username" class="text-xs font-semibold leading-tight"></span>
+          <span id="header-ebs" class="text-blue-300 text-xs leading-tight"></span>
+        </div>
+        <button onclick="logout()" title="Cerrar sesión" class="bg-white/10 hover:bg-white/25 rounded-lg p-2 transition">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        </button>
       </div>
     </div>
-    <div class="flex items-center gap-2">
-      <!-- Status online/offline -->
-      <div id="status-bar" class="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1">
-        <div id="status-dot" class="w-2 h-2 rounded-full bg-green-400"></div>
-        <span id="status-text" class="text-xs font-medium">En línea</span>
+    <!-- Admin nav tabs -->
+    <div id="nav-admin" class="hidden border-t border-white/10">
+      <div class="max-w-5xl mx-auto px-4 flex gap-1 py-2">
+        <button class="tab-btn active" data-tab="tab-registros" onclick="switchAdminTab(this)">📋 Registros</button>
+        <button class="tab-btn" data-tab="tab-usuarios" onclick="switchAdminTab(this)">👥 Usuarios</button>
+        <button class="tab-btn" data-tab="tab-exportar" onclick="switchAdminTab(this)">📥 Exportar</button>
       </div>
-      <!-- Pending count -->
-      <button id="btn-sync" onclick="syncPendingRecords()" class="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 transition text-xs font-medium" title="Sincronizar pendientes">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-        <span id="pending-count">0 pendientes</span>
+    </div>
+  </header>
+
+
+  <!-- ── PANEL USUARIO ────────────────────────────────────────── -->
+  <div id="panel-usuario" class="hidden max-w-4xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- Banner EBS -->
+    <div class="card p-4 flex flex-col sm:flex-row items-start sm:items-center gap-3 border-l-4 border-hospital-700">
+      <div class="w-10 h-10 bg-hospital-50 rounded-xl flex items-center justify-center flex-shrink-0">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-hospital-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      </div>
+      <div class="flex-1">
+        <div class="text-sm font-semibold text-slate-700">EBS asignada: <span id="user-ebs-display" class="text-hospital-800 font-bold"></span></div>
+        <div class="text-xs text-slate-500">Solo puede registrar y consultar pacientes de su EBS</div>
+      </div>
+      <button onclick="descargarMisRegistros()" class="flex items-center gap-2 bg-hospital-800 hover:bg-hospital-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition whitespace-nowrap">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Mis registros CSV
       </button>
     </div>
-  </div>
-</header>
 
-<!-- MAIN -->
-<main class="max-w-4xl mx-auto px-4 py-6 space-y-6">
+    <!-- Título -->
+    <div class="card p-5">
+      <h1 class="font-display text-xl font-bold text-slate-800">Plan de Cuidado Individual</h1>
+      <p class="text-slate-500 text-sm mt-1">Resolución 3280 de 2018 · Ciclos Vitales · Versión 4.0 – Enero 2024</p>
+    </div>
 
-  <!-- TÍTULO -->
-  <div class="card p-5">
-    <h1 class="font-display text-xl font-bold text-slate-800">Plan de Cuidado Individual</h1>
-    <p class="text-slate-500 text-sm mt-1">Resolución 3280 de 2018 · Ciclos Vitales · Versión 4.0 – Enero 2024</p>
-  </div>
+    <!-- FORMULARIO PCI -->
+    <form id="pci-form" novalidate>
 
-  <!-- FORMULARIO -->
-  <form id="pci-form" novalidate>
-
-    <!-- SECCIÓN 1: DATOS SOCIODEMOGRÁFICOS -->
-    <div class="card p-6 mb-6">
-      <div class="section-header">
-        <div class="section-number">1</div>
-        <div>
-          <h2 class="font-semibold text-slate-800 text-base">Datos Sociodemográficos</h2>
-          <p class="text-slate-400 text-xs">Información básica del paciente</p>
+      <!-- Sección 1: Datos sociodemográficos -->
+      <div class="card p-6 mb-6">
+        <div class="section-header">
+          <div class="section-number">1</div>
+          <div>
+            <h2 class="font-semibold text-slate-800 text-base">Datos Sociodemográficos</h2>
+            <p class="text-slate-400 text-xs">Información básica del paciente</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div>
+            <label class="form-label" for="fecha_atencion">Fecha de Atención *</label>
+            <input class="form-input" type="date" id="fecha_atencion" name="fecha_atencion" required />
+          </div>
+          <div>
+            <label class="form-label" for="eps">EPS *</label>
+            <select class="form-input" id="eps" name="eps" required>
+              <option value="">Seleccionar...</option>
+              <option>Cajacopi</option><option>Coosalud</option><option>Mutual Ser</option>
+              <option>Nueva EPS</option><option>Salud Total</option><option>Sanitas</option>
+              <option>Sura</option><option>Compensar</option><option>Famisanar</option>
+              <option>Asmet Salud</option><option>Capresoca</option><option>Emdisalud</option>
+              <option>Sisben / Sin EPS</option><option>Otro</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label" for="municipio">Municipio *</label>
+            <select class="form-input" id="municipio" name="municipio" required>
+              <option value="">Seleccionar...</option>
+              <option>Ábrego</option><option>El Carmen</option><option>Convención</option><option>Teorama</option>
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="form-label" for="nombre_apellido">Nombre y Apellido *</label>
+            <input class="form-input" type="text" id="nombre_apellido" name="nombre_apellido" placeholder="Nombre completo" required />
+          </div>
+          <div>
+            <label class="form-label" for="documento">Documento *</label>
+            <input class="form-input" type="number" id="documento" name="documento" placeholder="Número" required />
+          </div>
+          <div>
+            <label class="form-label" for="fecha_nacimiento">Fecha de Nacimiento *</label>
+            <input class="form-input" type="date" id="fecha_nacimiento" name="fecha_nacimiento" required oninput="calcularEdad()" />
+          </div>
+          <div>
+            <label class="form-label" for="edad">Edad (calculada)</label>
+            <input class="form-input" type="text" id="edad" name="edad" disabled />
+          </div>
+          <div>
+            <label class="form-label" for="celular">Celular</label>
+            <input class="form-input" type="number" id="celular" name="celular" placeholder="3XX XXX XXXX" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="form-label" for="direccion">Dirección</label>
+            <input class="form-input" type="text" id="direccion" name="direccion" placeholder="Dirección de residencia" />
+          </div>
+          <div>
+            <label class="form-label" for="codigo_microterritorio">Código Microterritorio</label>
+            <input class="form-input" type="text" id="codigo_microterritorio" name="codigo_microterritorio" />
+          </div>
+          <div>
+            <label class="form-label" for="codigo_familia">Código Familia</label>
+            <input class="form-input" type="text" id="codigo_familia" name="codigo_familia" />
+          </div>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-
-        <div>
-          <label class="form-label" for="fecha_atencion">Fecha de Atención *</label>
-          <input class="form-input" type="date" id="fecha_atencion" name="fecha_atencion" required />
+      <!-- Sección 2: Plan de Cuidado -->
+      <div class="card p-6 mb-6">
+        <div class="section-header">
+          <div class="section-number">2</div>
+          <div>
+            <h2 class="font-semibold text-slate-800 text-base">Plan de Cuidado Individual</h2>
+            <p class="text-slate-400 text-xs">Ruta de Atención por Ciclo Vital – Res. 3280/2018</p>
+          </div>
         </div>
-
-        <div>
-          <label class="form-label" for="eps">EPS *</label>
-          <select class="form-input" id="eps" name="eps" required>
-            <option value="">Seleccionar...</option>
-            <option>Cajacopi</option>
-            <option>Coosalud</option>
-            <option>Mutual Ser</option>
-            <option>Nueva EPS</option>
-            <option>Salud Total</option>
-            <option>Sanitas</option>
-            <option>Sura</option>
-            <option>Compensar</option>
-            <option>Famisanar</option>
-            <option>Asmet Salud</option>
-            <option>Capresoca</option>
-            <option>Emdisalud</option>
-            <option>Sisben / Sin EPS</option>
-            <option>Otro</option>
+        <div class="mb-6">
+          <label class="form-label" for="ciclo_vital">Ciclo Vital *</label>
+          <select class="form-input max-w-sm" id="ciclo_vital" name="ciclo_vital" required onchange="renderIntervenciones()">
+            <option value="">Seleccionar ciclo vital...</option>
+            <option value="primera_infancia">🍼 Primera Infancia (1 mes – 5 años)</option>
+            <option value="infancia">🧒 Infancia (6 – 11 años)</option>
+            <option value="adolescencia">🧑 Adolescencia (12 – 17 años)</option>
+            <option value="juventud">👤 Juventud (18 – 28 años)</option>
+            <option value="adultez">🧑‍💼 Adultez (29 – 59 años)</option>
+            <option value="vejez">👴 Vejez (60+ años)</option>
+            <option value="materno_perinatal">🤰 Ruta Materno Perinatal</option>
           </select>
         </div>
-
-        <div>
-          <label class="form-label" for="municipio">Municipio *</label>
-          <select class="form-input" id="municipio" name="municipio" required>
-            <option value="">Seleccionar...</option>
-            <option>Ábrego</option>
-            <option>El Carmen</option>
-            <option>Convención</option>
-            <option>Teorama</option>
-          </select>
+        <div id="leyenda" class="hidden mb-5 flex flex-wrap gap-3">
+          <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-med)"></div><span class="text-xs text-slate-600">Medicina General</span></div>
+          <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-enf)"></div><span class="text-xs text-slate-600">Enfermería</span></div>
+          <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-psi)"></div><span class="text-xs text-slate-600">Psicología</span></div>
+          <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-odo)"></div><span class="text-xs text-slate-600">Odontología</span></div>
+          <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-nut)"></div><span class="text-xs text-slate-600">Nutrición</span></div>
+          <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-aux)"></div><span class="text-xs text-slate-600">Auxiliares Enf.</span></div>
         </div>
-
-        <div class="sm:col-span-2">
-          <label class="form-label" for="nombre_apellido">Nombre y Apellido *</label>
-          <input class="form-input" type="text" id="nombre_apellido" name="nombre_apellido" placeholder="Nombre completo del paciente" required />
+        <div id="intervenciones-container">
+          <div class="flex flex-col items-center justify-center py-12 text-slate-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mb-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            <p class="text-sm">Seleccione un ciclo vital para ver las intervenciones</p>
+          </div>
         </div>
-
-        <div>
-          <label class="form-label" for="documento">Documento de Identidad *</label>
-          <input class="form-input" type="number" id="documento" name="documento" placeholder="Número de documento" required />
+        <div id="otras-container" class="hidden mt-4 pt-4 border-t border-slate-100">
+          <label class="form-label" for="otras_intervenciones">Otras Intervenciones Necesarias</label>
+          <textarea class="form-input" id="otras_intervenciones" name="otras_intervenciones" rows="3" placeholder="Describa otras intervenciones realizadas..."></textarea>
         </div>
+      </div>
 
-        <div>
-          <label class="form-label" for="fecha_nacimiento">Fecha de Nacimiento *</label>
-          <input class="form-input" type="date" id="fecha_nacimiento" name="fecha_nacimiento" required oninput="calcularEdad()" />
+      <!-- Acciones formulario -->
+      <div class="card p-5 flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <div class="text-slate-400 text-xs">Los registros se guardan localmente y se sincronizan al tener conexión.</div>
+        <div class="flex gap-3">
+          <button type="button" onclick="limpiarFormulario()" class="px-5 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition">Limpiar</button>
+          <button type="submit" class="px-6 py-2.5 rounded-xl bg-hospital-800 text-white font-semibold text-sm hover:bg-hospital-900 transition shadow flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+            Guardar Registro
+          </button>
         </div>
+      </div>
+    </form>
 
-        <div>
-          <label class="form-label" for="edad">Edad (calculada)</label>
-          <input class="form-input" type="text" id="edad" name="edad" placeholder="Auto-calculada" disabled />
+    <!-- Historial local -->
+    <div class="card p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="font-semibold text-slate-800">Registros Locales Pendientes</h3>
+        <span id="registros-count" class="pending-badge">0 registros</span>
+      </div>
+      <div id="historial-container">
+        <p class="text-slate-400 text-sm text-center py-6">No hay registros pendientes de sincronizar.</p>
+      </div>
+    </div>
+  </div><!-- /panel-usuario -->
+
+
+  <!-- ── PANEL ADMINISTRADOR ──────────────────────────────────── -->
+  <div id="panel-admin" class="hidden max-w-5xl mx-auto px-4 py-6">
+
+    <!-- TAB: Registros -->
+    <div id="tab-registros" class="tab-panel active space-y-4">
+      <div class="card p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+          <div>
+            <h2 class="font-semibold text-slate-800">Todos los Registros PCI</h2>
+            <p class="text-slate-400 text-xs mt-0.5">Vista global cargada desde Google Sheets</p>
+          </div>
+          <div class="flex gap-2 flex-wrap">
+            <select id="admin-filtro-ebs" class="form-input text-sm" style="width:auto" onchange="filtrarRegistrosAdmin()">
+              <option value="">Todos los EBS</option>
+            </select>
+            <button onclick="cargarRegistrosAdmin()" class="flex items-center gap-2 bg-hospital-800 hover:bg-hospital-900 text-white text-sm font-semibold px-4 py-2 rounded-xl transition">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              Cargar
+            </button>
+            <button onclick="exportarRegistrosAdmin()" class="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-semibold px-4 py-2 rounded-xl transition">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              CSV
+            </button>
+          </div>
         </div>
-
-        <div>
-          <label class="form-label" for="celular">Celular</label>
-          <input class="form-input" type="number" id="celular" name="celular" placeholder="3XX XXX XXXX" />
+      </div>
+      <div class="card overflow-hidden">
+        <div id="admin-registros-table" class="overflow-x-auto min-h-32">
+          <div class="text-center text-slate-400 py-12 text-sm">Presione "Cargar" para obtener los registros desde Google Sheets.</div>
         </div>
-
-        <div class="sm:col-span-2">
-          <label class="form-label" for="direccion">Dirección</label>
-          <input class="form-input" type="text" id="direccion" name="direccion" placeholder="Dirección de residencia" />
-        </div>
-
-        <div>
-          <label class="form-label" for="codigo_microterritorio">Código Microterritorio</label>
-          <input class="form-input" type="text" id="codigo_microterritorio" name="codigo_microterritorio" placeholder="Ej: MIC-001" />
-        </div>
-
-        <div>
-          <label class="form-label" for="codigo_familia">Código Familia</label>
-          <input class="form-input" type="text" id="codigo_familia" name="codigo_familia" placeholder="Ej: FAM-0001" />
-        </div>
-
       </div>
     </div>
 
-    <!-- SECCIÓN 2: PLAN DE CUIDADO -->
-    <div class="card p-6 mb-6">
-      <div class="section-header">
-        <div class="section-number">2</div>
+    <!-- TAB: Usuarios -->
+    <div id="tab-usuarios" class="tab-panel space-y-4">
+      <div class="card p-5 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div>
-          <h2 class="font-semibold text-slate-800 text-base">Plan de Cuidado Individual</h2>
-          <p class="text-slate-400 text-xs">Ruta de Atención por Ciclo Vital – Res. 3280/2018</p>
+          <h2 class="font-semibold text-slate-800">Gestión de Usuarios</h2>
+          <p class="text-slate-400 text-xs mt-0.5">Crear, editar y controlar el acceso del personal</p>
+        </div>
+        <button onclick="abrirModalUsuario()" class="flex items-center gap-2 bg-hospital-800 hover:bg-hospital-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Nuevo Usuario
+        </button>
+      </div>
+      <div class="card overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="table-admin">
+            <thead>
+              <tr>
+                <th>Usuario</th><th>Nombre</th><th>Rol</th>
+                <th>EBS</th><th>Estado</th><th>Último acceso</th><th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-usuarios-body">
+              <tr><td colspan="7" class="text-center text-slate-400 py-8 text-sm">Cargando...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
-
-      <div class="mb-6">
-        <label class="form-label" for="ciclo_vital">Ciclo Vital *</label>
-        <select class="form-input max-w-sm" id="ciclo_vital" name="ciclo_vital" required onchange="renderIntervenciones()">
-          <option value="">Seleccionar ciclo vital...</option>
-          <option value="primera_infancia">🍼 Primera Infancia (1 mes – 5 años)</option>
-          <option value="infancia">🧒 Infancia (6 – 11 años)</option>
-          <option value="adolescencia">🧑 Adolescencia (12 – 17 años)</option>
-          <option value="juventud">👤 Juventud (18 – 28 años)</option>
-          <option value="adultez">🧑‍💼 Adultez (29 – 59 años)</option>
-          <option value="vejez">👴 Vejez (60+ años)</option>
-          <option value="materno_perinatal">🤰 Ruta Materno Perinatal</option>
-        </select>
-      </div>
-
-      <!-- Leyenda de colores -->
-      <div id="leyenda" class="hidden mb-5 flex flex-wrap gap-3">
-        <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-med)"></div><span class="text-xs text-slate-600">Medicina General</span></div>
-        <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-enf)"></div><span class="text-xs text-slate-600">Enfermería</span></div>
-        <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-psi)"></div><span class="text-xs text-slate-600">Psicología</span></div>
-        <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-odo)"></div><span class="text-xs text-slate-600">Odontología</span></div>
-        <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-nut)"></div><span class="text-xs text-slate-600">Nutrición</span></div>
-        <div class="flex items-center gap-1.5"><div class="dot" style="background:var(--col-aux)"></div><span class="text-xs text-slate-600">Auxiliares Enf.</span></div>
-      </div>
-
-      <!-- Contenedor dinámico de intervenciones -->
-      <div id="intervenciones-container">
-        <div class="flex flex-col items-center justify-center py-12 text-slate-400">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 mb-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-          <p class="text-sm">Seleccione un ciclo vital para ver las intervenciones</p>
-        </div>
-      </div>
-
-      <!-- Otras intervenciones -->
-      <div id="otras-container" class="hidden mt-4 pt-4 border-t border-slate-100">
-        <label class="form-label" for="otras_intervenciones">Otras Intervenciones Necesarias</label>
-        <textarea class="form-input" id="otras_intervenciones" name="otras_intervenciones" rows="3" placeholder="Describa otras intervenciones realizadas..."></textarea>
-      </div>
-
     </div>
 
-    <!-- ACCIONES -->
-    <div class="card p-5 flex flex-col sm:flex-row gap-3 items-center justify-between">
-      <div class="text-slate-400 text-xs">
-        Los registros se guardan localmente y se sincronizan cuando haya conexión.
+    <!-- TAB: Exportar -->
+    <div id="tab-exportar" class="tab-panel space-y-4">
+      <div class="card p-6">
+        <h2 class="font-semibold text-slate-800 mb-1">Exportar Registros por EBS</h2>
+        <p class="text-slate-400 text-sm mb-6">Descargue los registros de una EBS específica en formato CSV.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div>
+            <label class="form-label" for="export-ebs-select">Código EBS</label>
+            <select class="form-input" id="export-ebs-select">
+              <option value="">Seleccionar EBS...</option>
+            </select>
+          </div>
+        </div>
+        <button onclick="exportarPorEBS()" class="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-6 py-2.5 rounded-xl transition">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          Descargar CSV
+        </button>
       </div>
+      <div id="admin-stats" class="grid grid-cols-2 sm:grid-cols-4 gap-4"></div>
+    </div>
+  </div><!-- /panel-admin -->
+
+</div><!-- /view-app -->
+
+
+<!-- ══════════════════════════════════════════════════
+  MODAL: CREAR / EDITAR USUARIO
+══════════════════════════════════════════════════ -->
+<div id="modal-usuario" class="modal-overlay modal-hidden" onclick="cerrarModalSiOverlay(event)">
+  <div class="modal-box">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <h3 id="modal-titulo" class="font-semibold text-slate-800">Nuevo Usuario</h3>
+      <button onclick="cerrarModalUsuario()" class="text-slate-400 hover:text-slate-600 transition">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form id="form-usuario" class="p-6 space-y-4" novalidate>
+      <input type="hidden" id="usr-id" />
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="form-label" for="usr-nombre">Nombre completo *</label>
+          <input class="form-input" type="text" id="usr-nombre" placeholder="Nombre y Apellido" required />
+        </div>
+        <div>
+          <label class="form-label" for="usr-usuario">Nombre de usuario *</label>
+          <input class="form-input" type="text" id="usr-usuario" placeholder="ej: enfermera01" required autocomplete="off" />
+        </div>
+        <div class="relative">
+          <label class="form-label" for="usr-password">Contraseña</label>
+          <input class="form-input pr-10" type="password" id="usr-password" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+          <button type="button" onclick="togglePwd('usr-password')" class="absolute right-3 top-8 text-slate-400 hover:text-slate-600 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          </button>
+          <p id="pwd-hint" class="text-slate-400 text-xs mt-1">En blanco = no cambiar contraseña (edición)</p>
+        </div>
+        <div>
+          <label class="form-label" for="usr-rol">Rol *</label>
+          <select class="form-input" id="usr-rol" required>
+            <option value="usuario">Usuario (EBS)</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label" for="usr-ebs">Código EBS *</label>
+          <input class="form-input" type="text" id="usr-ebs" placeholder="ej: EBS-001" required />
+          <p class="text-slate-400 text-xs mt-1">Para admins puede usar "ADMIN"</p>
+        </div>
+        <div>
+          <label class="form-label" for="usr-estado">Estado</label>
+          <select class="form-input" id="usr-estado">
+            <option value="activo">Activo</option>
+            <option value="inactivo">Inactivo</option>
+          </select>
+        </div>
+      </div>
+      <div id="modal-error" class="hidden bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-red-700 text-sm"></div>
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="cerrarModalUsuario()" class="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition">Cancelar</button>
+        <button type="submit" class="flex-1 py-2.5 rounded-xl bg-hospital-800 text-white font-semibold text-sm hover:bg-hospital-900 transition">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+  MODAL: CONFIRMAR ACCIÓN
+══════════════════════════════════════════════════ -->
+<div id="modal-confirmar" class="modal-overlay modal-hidden">
+  <div class="modal-box max-w-sm">
+    <div class="p-6 text-center">
+      <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      </div>
+      <h3 class="font-semibold text-slate-800 mb-2">¿Confirmar acción?</h3>
+      <p id="confirmar-msg" class="text-slate-500 text-sm mb-6">Esta acción no se puede deshacer.</p>
       <div class="flex gap-3">
-        <button type="button" onclick="limpiarFormulario()" class="px-5 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition">
-          Limpiar
-        </button>
-        <button type="submit" id="btn-guardar" class="px-6 py-2.5 rounded-xl bg-hospital-800 text-white font-semibold text-sm hover:bg-hospital-900 transition shadow flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
-          Guardar Registro
-        </button>
+        <button onclick="cerrarModalConfirmar()" class="flex-1 py-2.5 rounded-xl border-2 border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition">Cancelar</button>
+        <button id="btn-confirmar-ok" class="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition">Confirmar</button>
       </div>
     </div>
-
-  </form>
-
-  <!-- HISTORIAL LOCAL -->
-  <div class="card p-6">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="font-semibold text-slate-800">Registros Locales</h3>
-      <span id="registros-count" class="pending-badge">0 registros</span>
-    </div>
-    <div id="historial-container">
-      <p class="text-slate-400 text-sm text-center py-6">No hay registros almacenados localmente.</p>
-    </div>
   </div>
-
-</main>
+</div>
 
 <!-- TOAST -->
 <div id="toast" class="bg-slate-800 text-white text-sm px-5 py-3 rounded-full shadow-xl flex items-center gap-2">
