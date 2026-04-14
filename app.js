@@ -6,7 +6,7 @@
 'use strict';
 
 // ─── CONFIGURACIÓN ───────────────────────────────────────────
-const GAS_URL     = 'https://script.google.com/macros/s/AKfycbw5qIea5dvWcb_bJmNXOyvDb0cYCYSoW_qcgHdsGuwQ-2HAm7thdOXJP5MPQfoXXIMOuA/exec';
+const GAS_URL     = 'https://script.google.com/macros/s/TU_DEPLOYMENT_ID_AQUI/exec';
 const STORAGE_KEY = 'pci_pendientes';   // registros offline
 const SESSION_KEY = 'pci_session';      // sesión activa (sessionStorage)
 
