@@ -4,7 +4,7 @@
 // ============================================================
 'use strict';
 
-const GAS_URL     = 'https://script.google.com/macros/s/AKfycbzfK5_AGFmLvcyFjISkOK08GgIXYPFfvh1EOWeEi0FhTxqYaI4BWuAWX17BkGFAGMvxGA/exec';
+const GAS_URL     = 'https://script.google.com/macros/s/AKfycbzfK5_AGFmLvcyFjISkOK08GgIXYPFhfvh1EOWeEi0FhTxqYaI4BWuAWX17BkGFAGMvxGA/exec';
 const STORAGE_KEY = 'pci_pendientes';
 const SESSION_KEY = 'pci_session';
 
@@ -80,7 +80,7 @@ document.getElementById('form-login').addEventListener('submit', async function(
     }
 
     // El servidor devuelve data.usuario._hash — lo guardamos en sesión
-    const sesion = data.usuario; // ya incluye _hash desde el servidor
+    const sesion = { ...data.usuario, _hash: hash };
     if (!sesion._hash) sesion._hash = hash; // fallback por si acaso
     setSession(sesion);
     mostrarApp(sesion);
