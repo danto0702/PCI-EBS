@@ -1,567 +1,501 @@
 // ============================================================
-// PCI App – Google Apps Script v3.0
+// PCI App – Google Apps Script v4.0
 // ESE Hospital Regional Noroccidental
-// Backend completo: autenticación, usuarios, registros PCI
 // ============================================================
-//
-// HOJAS que se crean automáticamente:
-//   Usuarios      → credenciales y configuración de usuarios
-//   PCI_Registros → planes de cuidado individual
-//   ErrorLog      → registro de errores internos
+// HOJAS creadas automáticamente:
+//   Usuarios      → id, nombre, usuario, passwordHash, rol,
+//                   codigoEBS, estado, creadoEn, ultimoAcceso
+//   PCI_Registros → todos los planes de cuidado
+//   ErrorLog      → errores internos
 //
 // DESPLIEGUE:
-//   1. Sheets → Extensiones → Apps Script → pegar código → Guardar
+//   1. Sheets → Extensiones → Apps Script → pegar → Guardar
 //   2. Implementar → Nueva implementación
-//      Tipo: Aplicación web
-//      Ejecutar como: Yo
-//      Acceso: Cualquier persona
-//   3. Copiar URL /exec → pegar en app.js como GAS_URL
+//      Tipo: Aplicación web | Ejecutar como: Yo | Acceso: Cualquier persona
+//   3. Copiar URL /exec → pegar en app.js (GAS_URL)
 // ============================================================
 
 var H_USUARIOS  = 'Usuarios';
 var H_REGISTROS = 'PCI_Registros';
 var H_ERRORES   = 'ErrorLog';
 
-// Columnas de la hoja Usuarios (orden fijo)
-var COLS_USUARIOS = [
-  'id', 'nombre', 'usuario', 'passwordHash',
-  'rol', 'codigoEBS', 'estado', 'creadoEn', 'ultimoAcceso'
+var COLS_USR = ['id','nombre','usuario','passwordHash','rol','codigoEBS','estado','creadoEn','ultimoAcceso'];
+
+var COLS_PCI_FIJAS = [
+  '_id','_timestamp','_status','_sincronizado','_usuario',
+  'fecha_atencion','eps','nombre_apellido','documento',
+  'fecha_nacimiento','edad','direccion','celular','municipio',
+  'codigo_microterritorio','codigo_familia','codigo_ebs',
+  'ciclo_vital','ciclo_vital_label','otras_intervenciones'
 ];
 
-// Columnas fijas de registros PCI (las de intervenciones se agregan dinámicamente)
-var COLS_REGISTROS_FIJAS = [
-  '_id', '_timestamp', '_status', '_sincronizado', '_usuario',
-  'fecha_atencion', 'eps', 'nombre_apellido', 'documento',
-  'fecha_nacimiento', 'edad', 'direccion', 'celular', 'municipio',
-  'codigo_microterritorio', 'codigo_familia', 'codigo_ebs',
-  'ciclo_vital', 'ciclo_vital_label', 'otras_intervenciones'
-];
-
-// ─── RESPUESTA JSON ───────────────────────────────────────────
+// ─── RESPUESTA ────────────────────────────────────────────────
 function R(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-// ═══════════════════════════════════════════════════════════════
-// ENRUTADORES PRINCIPALES
-// ═══════════════════════════════════════════════════════════════
-
+// ─── GET ──────────────────────────────────────────────────────
 function doGet(e) {
   try {
-    var p = (e && e.parameter) ? e.parameter : {};
-    switch (p.action) {
-      case 'ping':           return R({ ok: true, version: '3.0' });
-      case 'get_registros':  return accionGetRegistros(p);
-      default:               return R({ ok: true, version: '3.0', ts: new Date().toISOString() });
-    }
-  } catch (err) {
-    logError(err, 'doGet');
-    return R({ ok: false, error: String(err) });
+    var p = e && e.parameter ? e.parameter : {};
+    if (p.action === 'ping')          return R({ ok:true, version:'4.0' });
+    if (p.action === 'get_registros') return getRegistros(p.ebs || '', p.rol || '', p.codigoEBS || '');
+    return R({ ok:true, version:'4.0', ts: new Date().toISOString() });
+  } catch(err) {
+    logErr(err,'doGet');
+    return R({ ok:false, error:String(err) });
   }
 }
 
+// ─── POST ─────────────────────────────────────────────────────
 function doPost(e) {
   try {
-    var raw    = (e && e.postData && e.postData.contents) ? e.postData.contents : '{}';
-    var body   = JSON.parse(raw);
-    var accion = body.action || body._action || '';
+    var raw  = e && e.postData && e.postData.contents ? e.postData.contents : '{}';
+    var body = JSON.parse(raw);
+    var act  = String(body.action || body._action || '');
 
-    switch (accion) {
-      // ── Autenticación ──────────────────────────────────────
-      case 'login':              return accionLogin(body);
+    // Log para depuración (ver en ErrorLog)
+    logErr('doPost action=' + act + ' adminId=' + (body._adminId||'') + ' tokenLen=' + (body._adminToken||'').length, 'DEBUG');
 
-      // ── Usuarios (solo admin) ──────────────────────────────
-      case 'crear_usuario':      return accionCrearUsuario(body);
-      case 'editar_usuario':     return accionEditarUsuario(body);
-      case 'eliminar_usuario':   return accionEliminarUsuario(body);
-      case 'listar_usuarios':    return accionListarUsuarios(body);
-      case 'toggle_estado':      return accionToggleEstado(body);
-
-      // ── Registros PCI ──────────────────────────────────────
-      case 'guardar_registro':   return accionGuardarRegistro(body);
-      case 'guardar_lote':       return accionGuardarLote(body);
-
-      // ── Compatibilidad versión anterior ────────────────────
-      case 'guardar_registro_v1':
-      case '':                   return accionGuardarRegistro(body);
-
-      default:
-        return R({ ok: false, error: 'Acción desconocida: ' + accion });
+    switch(act) {
+      case 'login':           return login(body);
+      case 'listar_usuarios': return listarUsuarios(body);
+      case 'crear_usuario':   return crearUsuario(body);
+      case 'editar_usuario':  return editarUsuario(body);
+      case 'eliminar_usuario':return eliminarUsuario(body);
+      case 'toggle_estado':   return toggleEstado(body);
+      case 'guardar_registro':return guardarRegistro(body);
+      case 'guardar_lote':    return guardarLote(body);
+      default:                return guardarRegistro(body); // compatibilidad
     }
-  } catch (err) {
-    logError(err, 'doPost');
-    return R({ ok: false, error: String(err) });
+  } catch(err) {
+    logErr(err,'doPost');
+    return R({ ok:false, error:String(err) });
   }
 }
 
 // ═══════════════════════════════════════════════════════════════
-// AUTENTICACIÓN
+// LOGIN
 // ═══════════════════════════════════════════════════════════════
+function login(body) {
+  var uInput = String(body.usuario      || '').toLowerCase().trim();
+  var hInput = String(body.passwordHash || '').toLowerCase().trim();
 
-function accionLogin(body) {
-  var usuario  = String(body.usuario  || '').toLowerCase().trim();
-  var hashPwd  = String(body.passwordHash || '');
+  if (!uInput || !hInput) return R({ ok:false, error:'Faltan credenciales' });
 
-  if (!usuario || !hashPwd) {
-    return R({ ok: false, error: 'Usuario y contraseña requeridos' });
-  }
-
-  var hoja = obtenerHojaUsuarios();
+  var hoja  = hojaUsuarios();
   var datos = hoja.getDataRange().getValues();
-  if (datos.length <= 1) return R({ ok: false, error: 'Sin usuarios registrados' });
+  if (datos.length <= 1) return R({ ok:false, error:'Sin usuarios registrados. Ejecute testCrearAdmin() en el editor.' });
 
-  var enc = datos[0];
-  var iUsuario  = enc.indexOf('usuario');
-  var iHash     = enc.indexOf('passwordHash');
-  var iEstado   = enc.indexOf('estado');
-  var iRol      = enc.indexOf('rol');
-  var iNombre   = enc.indexOf('nombre');
-  var iEBS      = enc.indexOf('codigoEBS');
-  var iId       = enc.indexOf('id');
-  var iAcceso   = enc.indexOf('ultimoAcceso');
+  var E = idx(datos[0]);
 
   for (var i = 1; i < datos.length; i++) {
-    var fila = datos[i];
-    var uLogin = String(fila[iUsuario] || '').toLowerCase().trim();
-    var uHash  = String(fila[iHash]   || '');
-    var estado = String(fila[iEstado] || '');
+    var fila   = datos[i];
+    var uHoja  = String(fila[E.usuario]      || '').toLowerCase().trim();
+    var hHoja  = String(fila[E.passwordHash] || '').toLowerCase().trim();
+    var estado = String(fila[E.estado]       || '');
 
-    if (uLogin === usuario && uHash === hashPwd) {
-      if (estado !== 'activo') {
-        return R({ ok: false, error: 'Cuenta inactiva. Contacte al administrador.' });
-      }
+    if (uHoja === uInput && hHoja === hInput) {
+      if (estado !== 'activo') return R({ ok:false, error:'Cuenta inactiva' });
+
       // Actualizar último acceso
-      hoja.getRange(i + 1, iAcceso + 1).setValue(new Date().toISOString());
+      try { hoja.getRange(i+1, E.ultimoAcceso+1).setValue(new Date().toISOString()); } catch(e){}
 
       return R({
         ok: true,
         usuario: {
-          id:         String(fila[iId]     || ''),
-          nombre:     String(fila[iNombre] || ''),
-          usuario:    String(fila[iUsuario]|| ''),
-          rol:        String(fila[iRol]    || ''),
-          codigoEBS:  String(fila[iEBS]    || ''),
-          estado:     estado
+          id:        String(fila[E.id]        || ''),
+          nombre:    String(fila[E.nombre]    || ''),
+          usuario:   uHoja,
+          rol:       String(fila[E.rol]       || ''),
+          codigoEBS: String(fila[E.codigoEBS] || ''),
+          estado:    estado,
+          // Devolver hash para que el frontend lo use como token
+          _hash:     hHoja
         }
       });
     }
   }
-
-  return R({ ok: false, error: 'Usuario o contraseña incorrectos' });
+  return R({ ok:false, error:'Usuario o contraseña incorrectos' });
 }
 
 // ═══════════════════════════════════════════════════════════════
-// GESTIÓN DE USUARIOS
+// VERIFICACIÓN ADMIN
 // ═══════════════════════════════════════════════════════════════
+function esAdmin(body) {
+  var adminId    = String(body._adminId    || '').trim();
+  var adminToken = String(body._adminToken || '').toLowerCase().trim();
 
-function accionListarUsuarios(body) {
-  if (!esAdmin(body)) return R({ ok: false, error: 'Sin permisos de administrador' });
-
-  var hoja  = obtenerHojaUsuarios();
-  var datos = hoja.getDataRange().getValues();
-  if (datos.length <= 1) return R({ ok: true, usuarios: [] });
-
-  var enc      = datos[0];
-  var iHash    = enc.indexOf('passwordHash');
-  var usuarios = [];
-
-  for (var i = 1; i < datos.length; i++) {
-    var obj = {};
-    enc.forEach(function(col, j) {
-      if (col !== 'passwordHash') obj[col] = datos[i][j]; // NO exponer hash
-    });
-    usuarios.push(obj);
+  if (!adminId || !adminToken) {
+    logErr('esAdmin: campos vacíos. adminId=['+adminId+'] tokenLen='+adminToken.length, 'AUTH');
+    return false;
   }
 
-  return R({ ok: true, usuarios: usuarios });
-}
-
-function accionCrearUsuario(body) {
-  if (!esAdmin(body)) return R({ ok: false, error: 'Sin permisos de administrador' });
-
-  var nombre   = String(body.nombre   || '').trim();
-  var usuario  = String(body.usuario  || '').toLowerCase().trim();
-  var hashPwd  = String(body.passwordHash || '');
-  var rol      = String(body.rol      || 'usuario');
-  var ebs      = String(body.codigoEBS|| '').toUpperCase().trim();
-  var estado   = String(body.estado   || 'activo');
-
-  if (!nombre || !usuario || !hashPwd || !ebs) {
-    return R({ ok: false, error: 'Faltan campos obligatorios: nombre, usuario, contraseña, codigoEBS' });
-  }
-
-  var hoja  = obtenerHojaUsuarios();
+  var hoja  = hojaUsuarios();
   var datos = hoja.getDataRange().getValues();
-  var enc   = datos[0];
-  var iUsr  = enc.indexOf('usuario');
+  if (datos.length <= 1) return false;
 
-  // Verificar duplicado
+  var E = idx(datos[0]);
+
   for (var i = 1; i < datos.length; i++) {
-    if (String(datos[i][iUsr] || '').toLowerCase() === usuario) {
-      return R({ ok: false, error: 'El nombre de usuario "' + usuario + '" ya existe' });
+    var fila   = datos[i];
+    var filaId = String(fila[E.id]           || '').trim();
+    var filaH  = String(fila[E.passwordHash] || '').toLowerCase().trim();
+    var filaRol= String(fila[E.rol]          || '');
+    var filaEst= String(fila[E.estado]       || '');
+
+    if (filaId === adminId && filaH === adminToken && filaRol === 'admin' && filaEst === 'activo') {
+      return true;
     }
   }
 
-  var nuevoId = 'usr_' + new Date().getTime();
-  var ahora   = new Date().toISOString();
+  logErr('esAdmin: no match para adminId='+adminId, 'AUTH');
+  return false;
+}
 
-  var fila = COLS_USUARIOS.map(function(col) {
-    switch (col) {
-      case 'id':           return nuevoId;
+// ═══════════════════════════════════════════════════════════════
+// CRUD USUARIOS
+// ═══════════════════════════════════════════════════════════════
+function listarUsuarios(body) {
+  if (!esAdmin(body)) return R({ ok:false, error:'Sin permisos de administrador' });
+
+  var hoja  = hojaUsuarios();
+  var datos = hoja.getDataRange().getValues();
+  if (datos.length <= 1) return R({ ok:true, usuarios:[] });
+
+  var E        = idx(datos[0]);
+  var usuarios = [];
+
+  for (var i = 1; i < datos.length; i++) {
+    var f = datos[i];
+    usuarios.push({
+      id:          String(f[E.id]          || ''),
+      nombre:      String(f[E.nombre]      || ''),
+      usuario:     String(f[E.usuario]     || ''),
+      rol:         String(f[E.rol]         || ''),
+      codigoEBS:   String(f[E.codigoEBS]   || ''),
+      estado:      String(f[E.estado]      || ''),
+      creadoEn:    String(f[E.creadoEn]    || ''),
+      ultimoAcceso:String(f[E.ultimoAcceso]|| '')
+      // NO incluir passwordHash
+    });
+  }
+  return R({ ok:true, usuarios:usuarios });
+}
+
+function crearUsuario(body) {
+  if (!esAdmin(body)) return R({ ok:false, error:'Sin permisos de administrador' });
+
+  var nombre  = String(body.nombre        || '').trim();
+  var usuario = String(body.usuario       || '').toLowerCase().trim();
+  var hash    = String(body.passwordHash  || '').toLowerCase().trim();
+  var rol     = String(body.rol           || 'usuario');
+  var ebs     = String(body.codigoEBS     || '').toUpperCase().trim();
+  var estado  = String(body.estado        || 'activo');
+
+  if (!nombre || !usuario || !hash || !ebs) {
+    return R({ ok:false, error:'Faltan campos: nombre, usuario, contraseña o codigoEBS' });
+  }
+
+  var hoja  = hojaUsuarios();
+  var datos = hoja.getDataRange().getValues();
+  var E     = idx(datos[0]);
+
+  for (var i = 1; i < datos.length; i++) {
+    if (String(datos[i][E.usuario]||'').toLowerCase() === usuario) {
+      return R({ ok:false, error:'El usuario "'+usuario+'" ya existe' });
+    }
+  }
+
+  var newId = 'usr_' + new Date().getTime();
+  var fila  = COLS_USR.map(function(col) {
+    switch(col) {
+      case 'id':           return newId;
       case 'nombre':       return nombre;
       case 'usuario':      return usuario;
-      case 'passwordHash': return hashPwd;
+      case 'passwordHash': return hash;
       case 'rol':          return rol;
       case 'codigoEBS':    return ebs;
       case 'estado':       return estado;
-      case 'creadoEn':     return ahora;
+      case 'creadoEn':     return new Date().toISOString();
       case 'ultimoAcceso': return '';
       default:             return '';
     }
   });
-
   hoja.appendRow(fila);
-  return R({ ok: true, id: nuevoId, mensaje: 'Usuario creado correctamente' });
+  return R({ ok:true, id:newId, mensaje:'Usuario creado' });
 }
 
-function accionEditarUsuario(body) {
-  if (!esAdmin(body)) return R({ ok: false, error: 'Sin permisos de administrador' });
+function editarUsuario(body) {
+  if (!esAdmin(body)) return R({ ok:false, error:'Sin permisos de administrador' });
 
-  var id = String(body.id || '');
-  if (!id) return R({ ok: false, error: 'ID de usuario requerido' });
+  var id = String(body.id || '').trim();
+  if (!id) return R({ ok:false, error:'ID requerido' });
 
-  var hoja  = obtenerHojaUsuarios();
+  var hoja  = hojaUsuarios();
   var datos = hoja.getDataRange().getValues();
-  var enc   = datos[0];
-  var iId   = enc.indexOf('id');
-  var iUsr  = enc.indexOf('usuario');
+  var E     = idx(datos[0]);
 
-  // Buscar la fila del usuario
   var filaNum = -1;
   for (var i = 1; i < datos.length; i++) {
-    if (String(datos[i][iId] || '') === id) { filaNum = i + 1; break; }
+    if (String(datos[i][E.id]||'').trim() === id) { filaNum = i+1; break; }
   }
-  if (filaNum === -1) return R({ ok: false, error: 'Usuario no encontrado' });
+  if (filaNum < 0) return R({ ok:false, error:'Usuario no encontrado' });
 
-  // Verificar duplicado de username (excluyendo al propio usuario)
-  var nuevoUsuario = String(body.usuario || '').toLowerCase().trim();
+  // Verificar duplicado de username (excluyendo al mismo usuario)
+  var nuevoUsr = String(body.usuario||'').toLowerCase().trim();
   for (var j = 1; j < datos.length; j++) {
-    if (j + 1 !== filaNum && String(datos[j][iUsr] || '').toLowerCase() === nuevoUsuario) {
-      return R({ ok: false, error: 'El nombre de usuario "' + nuevoUsuario + '" ya existe' });
+    if (j+1 !== filaNum && String(datos[j][E.usuario]||'').toLowerCase() === nuevoUsr) {
+      return R({ ok:false, error:'El nombre de usuario "'+nuevoUsr+'" ya existe' });
     }
   }
 
-  // Actualizar campos editables
-  var campos = { nombre: body.nombre, usuario: nuevoUsuario, rol: body.rol, codigoEBS: String(body.codigoEBS || '').toUpperCase(), estado: body.estado };
-  Object.keys(campos).forEach(function(campo) {
-    var col = enc.indexOf(campo);
-    if (col >= 0 && campos[campo] !== undefined && campos[campo] !== '') {
-      hoja.getRange(filaNum, col + 1).setValue(campos[campo]);
-    }
-  });
+  if (body.nombre)    hoja.getRange(filaNum, E.nombre+1).setValue(String(body.nombre).trim());
+  if (nuevoUsr)       hoja.getRange(filaNum, E.usuario+1).setValue(nuevoUsr);
+  if (body.rol)       hoja.getRange(filaNum, E.rol+1).setValue(body.rol);
+  if (body.codigoEBS) hoja.getRange(filaNum, E.codigoEBS+1).setValue(String(body.codigoEBS).toUpperCase().trim());
+  if (body.estado)    hoja.getRange(filaNum, E.estado+1).setValue(body.estado);
+  if (body.passwordHash) hoja.getRange(filaNum, E.passwordHash+1).setValue(String(body.passwordHash).toLowerCase().trim());
 
-  // Actualizar contraseña solo si se envía
-  if (body.passwordHash) {
-    var iHash = enc.indexOf('passwordHash');
-    if (iHash >= 0) hoja.getRange(filaNum, iHash + 1).setValue(body.passwordHash);
-  }
-
-  return R({ ok: true, mensaje: 'Usuario actualizado correctamente' });
+  return R({ ok:true, mensaje:'Usuario actualizado' });
 }
 
-function accionEliminarUsuario(body) {
-  if (!esAdmin(body)) return R({ ok: false, error: 'Sin permisos de administrador' });
+function eliminarUsuario(body) {
+  if (!esAdmin(body)) return R({ ok:false, error:'Sin permisos de administrador' });
 
-  var id = String(body.id || '');
-  if (!id) return R({ ok: false, error: 'ID requerido' });
+  var id = String(body.id || '').trim();
+  if (!id) return R({ ok:false, error:'ID requerido' });
+  if (body._adminId === id) return R({ ok:false, error:'No puede eliminar su propia cuenta' });
 
-  // Proteger: no eliminar el propio admin que está haciendo la petición
-  if (body.adminId && body.adminId === id) {
-    return R({ ok: false, error: 'No puede eliminar su propia cuenta' });
-  }
-
-  var hoja  = obtenerHojaUsuarios();
+  var hoja  = hojaUsuarios();
   var datos = hoja.getDataRange().getValues();
-  var enc   = datos[0];
-  var iId   = enc.indexOf('id');
+  var E     = idx(datos[0]);
 
   for (var i = 1; i < datos.length; i++) {
-    if (String(datos[i][iId] || '') === id) {
-      hoja.deleteRow(i + 1);
-      return R({ ok: true, mensaje: 'Usuario eliminado' });
+    if (String(datos[i][E.id]||'').trim() === id) {
+      hoja.deleteRow(i+1);
+      return R({ ok:true, mensaje:'Usuario eliminado' });
     }
   }
-  return R({ ok: false, error: 'Usuario no encontrado' });
+  return R({ ok:false, error:'Usuario no encontrado' });
 }
 
-function accionToggleEstado(body) {
-  if (!esAdmin(body)) return R({ ok: false, error: 'Sin permisos de administrador' });
+function toggleEstado(body) {
+  if (!esAdmin(body)) return R({ ok:false, error:'Sin permisos de administrador' });
 
-  var id    = String(body.id || '');
-  var hoja  = obtenerHojaUsuarios();
+  var id    = String(body.id || '').trim();
+  var hoja  = hojaUsuarios();
   var datos = hoja.getDataRange().getValues();
-  var enc   = datos[0];
-  var iId     = enc.indexOf('id');
-  var iEstado = enc.indexOf('estado');
+  var E     = idx(datos[0]);
 
   for (var i = 1; i < datos.length; i++) {
-    if (String(datos[i][iId] || '') === id) {
-      var actual  = String(datos[i][iEstado] || 'activo');
-      var nuevo   = actual === 'activo' ? 'inactivo' : 'activo';
-      hoja.getRange(i + 1, iEstado + 1).setValue(nuevo);
-      return R({ ok: true, nuevoEstado: nuevo });
+    if (String(datos[i][E.id]||'').trim() === id) {
+      var actual = String(datos[i][E.estado]||'activo');
+      var nuevo  = actual === 'activo' ? 'inactivo' : 'activo';
+      hoja.getRange(i+1, E.estado+1).setValue(nuevo);
+      return R({ ok:true, nuevoEstado:nuevo });
     }
   }
-  return R({ ok: false, error: 'Usuario no encontrado' });
+  return R({ ok:false, error:'Usuario no encontrado' });
 }
 
 // ═══════════════════════════════════════════════════════════════
 // REGISTROS PCI
 // ═══════════════════════════════════════════════════════════════
-
-function accionGetRegistros(params) {
+function getRegistros(filtroEBS) {
   try {
-    var hoja = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(H_REGISTROS);
-    if (!hoja || hoja.getLastRow() <= 1) return R({ ok: true, registros: [], total: 0 });
+    var libro = SpreadsheetApp.getActiveSpreadsheet();
+    var hoja  = libro.getSheetByName(H_REGISTROS);
+    if (!hoja || hoja.getLastRow() <= 1) return R({ ok:true, registros:[], total:0 });
 
-    var datos   = hoja.getDataRange().getValues();
-    var enc     = datos[0];
-    var filtroEBS = String(params.ebs || '').trim();
-    var registros = [];
+    var datos = hoja.getDataRange().getValues();
+    var enc   = datos[0];
+    var lista = [];
 
     for (var i = 1; i < datos.length; i++) {
       var fila = {};
-      enc.forEach(function(col, j) { fila[col] = datos[i][j]; });
-      if (!filtroEBS || fila['codigo_ebs'] === filtroEBS) {
-        registros.push(fila);
-      }
+      for (var j = 0; j < enc.length; j++) fila[enc[j]] = datos[i][j];
+      if (!filtroEBS || fila['codigo_ebs'] === filtroEBS) lista.push(fila);
     }
-    return R({ ok: true, registros: registros, total: registros.length });
-  } catch (err) {
-    logError(err, 'accionGetRegistros');
-    return R({ ok: false, error: String(err) });
+    return R({ ok:true, registros:lista, total:lista.length });
+  } catch(err) {
+    logErr(err,'getRegistros');
+    return R({ ok:false, error:String(err) });
   }
 }
 
-function accionGuardarRegistro(datos) {
+function guardarRegistro(datos) {
   try {
     var libro = SpreadsheetApp.getActiveSpreadsheet();
     var hoja  = libro.getSheetByName(H_REGISTROS);
     if (!hoja) hoja = libro.insertSheet(H_REGISTROS);
 
-    // Crear encabezados si hoja vacía
     if (hoja.getLastRow() === 0) {
-      var enc = construirEncabezadosRegistro(datos);
+      var enc = buildEncPCI(datos);
       hoja.appendRow(enc);
-      formatearEncabezado(hoja, enc.length);
+      fmtCabecera(hoja, enc.length);
     }
 
-    // Leer encabezados actuales
-    var numCols    = hoja.getLastColumn();
-    var encActual  = hoja.getRange(1, 1, 1, numCols).getValues()[0];
+    var numCols  = hoja.getLastColumn();
+    var encActual = hoja.getRange(1,1,1,numCols).getValues()[0];
 
-    // Agregar columnas nuevas de intervenciones si no existen
+    // Agregar columnas nuevas de intervenciones
     Object.keys(datos).forEach(function(k) {
-      if (k !== 'action' && k !== '_action' && encActual.indexOf(k) === -1) {
+      if (k !== 'action' && k !== '_action' && encActual.indexOf(k) < 0) {
         encActual.push(k);
-        var celda = hoja.getRange(1, encActual.length);
-        celda.setValue(k);
-        celda.setBackground('#1e40af');
-        celda.setFontColor('#ffffff');
-        celda.setFontWeight('bold');
-        celda.setFontSize(8);
+        var c = hoja.getRange(1, encActual.length);
+        c.setValue(k); c.setBackground('#1e40af'); c.setFontColor('#fff'); c.setFontWeight('bold');
       }
     });
 
-    // Construir y agregar fila
     var fila = encActual.map(function(col) {
-      var v = datos[col];
-      return (v === undefined || v === null) ? '' : v;
+      var v = datos[col]; return (v===undefined||v===null)?'':v;
     });
     hoja.appendRow(fila);
+    if (hoja.getLastRow() <= 20) { try { hoja.autoResizeColumns(1, Math.min(encActual.length,30)); } catch(e){} }
 
-    // Autoajustar las primeras veces
-    if (hoja.getLastRow() <= 20) {
-      try { hoja.autoResizeColumns(1, Math.min(encActual.length, 30)); } catch (e) {}
-    }
-
-    return R({ ok: true, id: datos._id || '', fila: hoja.getLastRow() });
-  } catch (err) {
-    logError(err, 'accionGuardarRegistro');
-    return R({ ok: false, error: String(err) });
+    return R({ ok:true, id:datos._id||'', fila:hoja.getLastRow() });
+  } catch(err) {
+    logErr(err,'guardarRegistro');
+    return R({ ok:false, error:String(err) });
   }
 }
 
-function accionGuardarLote(datos) {
+function guardarLote(datos) {
   var lista = datos.registros || [];
-  var ok = 0, fallo = 0;
-  lista.forEach(function(reg) {
-    try { accionGuardarRegistro(reg); ok++; }
-    catch (err) { logError(err, 'lote_item'); fallo++; }
-  });
-  return R({ ok: true, guardados: ok, fallidos: fallo, total: lista.length });
+  var ok=0, fail=0;
+  lista.forEach(function(r){ try{ guardarRegistro(r); ok++; } catch(e){ logErr(e,'lote'); fail++; } });
+  return R({ ok:true, guardados:ok, fallidos:fail });
 }
 
 // ═══════════════════════════════════════════════════════════════
-// HELPERS INTERNOS
+// HELPERS
 // ═══════════════════════════════════════════════════════════════
 
-function obtenerHojaUsuarios() {
+// Retorna objeto {columna: índice} para acceso rápido por nombre
+function idx(encabezados) {
+  var m = {};
+  encabezados.forEach(function(col, i) { m[col] = i; });
+  return m;
+}
+
+function hojaUsuarios() {
   var libro = SpreadsheetApp.getActiveSpreadsheet();
   var hoja  = libro.getSheetByName(H_USUARIOS);
   if (!hoja) {
     hoja = libro.insertSheet(H_USUARIOS);
-    hoja.appendRow(COLS_USUARIOS);
-    formatearEncabezado(hoja, COLS_USUARIOS.length);
-    hoja.setColumnWidth(1, 160);
-    hoja.setColumnWidth(4, 200); // passwordHash - ancho pero no visible fácilmente
-    // Crear admin por defecto: admin / admin123
-    // Hash SHA-256 de "admin123":
+    hoja.appendRow(COLS_USR);
+    fmtCabecera(hoja, COLS_USR.length);
+    // Admin por defecto: usuario=admin, contraseña=admin123
+    // SHA-256('admin123') en minúsculas:
     var hashAdmin = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
     hoja.appendRow([
-      'usr_default_admin',
-      'Administrador',
-      'admin',
-      hashAdmin,
-      'admin',
-      'ADMIN',
-      'activo',
-      new Date().toISOString(),
-      ''
+      'usr_admin_default', 'Administrador', 'admin',
+      hashAdmin, 'admin', 'ADMIN', 'activo',
+      new Date().toISOString(), ''
     ]);
-    Logger.log('Admin por defecto creado: admin / admin123');
   }
   return hoja;
 }
 
-function esAdmin(body) {
-  // Verificar que quien hace la petición es un admin activo
-  var adminToken = String(body._adminToken || '');
-  var adminId    = String(body._adminId    || '');
-  if (!adminToken || !adminId) return false;
-
-  var hoja  = obtenerHojaUsuarios();
-  var datos = hoja.getDataRange().getValues();
-  var enc   = datos[0];
-  var iId     = enc.indexOf('id');
-  var iHash   = enc.indexOf('passwordHash');
-  var iRol    = enc.indexOf('rol');
-  var iEstado = enc.indexOf('estado');
-
-  for (var i = 1; i < datos.length; i++) {
-    if (String(datos[i][iId] || '') === adminId &&
-        String(datos[i][iHash] || '') === adminToken &&
-        String(datos[i][iRol] || '') === 'admin' &&
-        String(datos[i][iEstado] || '') === 'activo') {
-      return true;
-    }
-  }
-  return false;
-}
-
-function construirEncabezadosRegistro(datos) {
+function buildEncPCI(datos) {
   var extras = Object.keys(datos).filter(function(k) {
-    return COLS_REGISTROS_FIJAS.indexOf(k) === -1 &&
-           k !== 'action' && k !== '_action';
+    return COLS_PCI_FIJAS.indexOf(k) < 0 && k !== 'action' && k !== '_action';
   }).sort();
-  return COLS_REGISTROS_FIJAS.concat(extras);
+  return COLS_PCI_FIJAS.concat(extras);
 }
 
-function formatearEncabezado(hoja, numCols) {
-  if (numCols < 1) return;
+function fmtCabecera(hoja, n) {
+  if (n < 1) return;
   try {
-    var r = hoja.getRange(1, 1, 1, numCols);
-    r.setBackground('#0f4c81');
-    r.setFontColor('#ffffff');
-    r.setFontWeight('bold');
-    r.setFontSize(9);
+    var r = hoja.getRange(1,1,1,n);
+    r.setBackground('#0f4c81'); r.setFontColor('#fff');
+    r.setFontWeight('bold');    r.setFontSize(9);
     hoja.setFrozenRows(1);
-  } catch (e) {}
+  } catch(e){}
 }
 
-function logError(err, ctx) {
+function logErr(err, ctx) {
   try {
     var libro = SpreadsheetApp.getActiveSpreadsheet();
     var hoja  = libro.getSheetByName(H_ERRORES);
-    if (!hoja) {
-      hoja = libro.insertSheet(H_ERRORES);
-      hoja.appendRow(['Timestamp', 'Contexto', 'Error']);
-      formatearEncabezado(hoja, 3);
-    }
-    hoja.appendRow([new Date().toISOString(), ctx || '', String(err)]);
-  } catch (e) {}
+    if (!hoja) { hoja = libro.insertSheet(H_ERRORES); hoja.appendRow(['Timestamp','Contexto','Error']); fmtCabecera(hoja,3); }
+    hoja.appendRow([new Date().toISOString(), ctx||'', String(err)]);
+  } catch(e){}
 }
 
 // ═══════════════════════════════════════════════════════════════
-// FUNCIONES DE PRUEBA (ejecutar manualmente desde el editor)
+// PRUEBAS (ejecutar manualmente desde el editor de Apps Script)
 // ═══════════════════════════════════════════════════════════════
+
+function testPing() {
+  Logger.log(doGet({ parameter:{ action:'ping' } }).getContent());
+}
+
+// Ejecutar esto si la hoja de Usuarios está vacía o corrupta
+function testCrearAdmin() {
+  var libro = SpreadsheetApp.getActiveSpreadsheet();
+  // Eliminar hoja existente para recrearla limpia
+  var hojaVieja = libro.getSheetByName(H_USUARIOS);
+  if (hojaVieja) libro.deleteSheet(hojaVieja);
+  hojaUsuarios(); // esto la recrea con el admin por defecto
+  Logger.log('Hoja Usuarios recreada. Admin: admin / admin123');
+}
 
 function testLogin() {
-  // Hash SHA-256 de "admin123"
+  // SHA-256 de 'admin123'
   var hash = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
-  var res = doPost({ postData: { contents: JSON.stringify({
-    action: 'login', usuario: 'admin', passwordHash: hash
-  })}});
-  Logger.log('LOGIN → ' + res.getContent());
-}
-
-function testCrearUsuario() {
-  // Primero hacer login para obtener el token de admin
-  var hashAdmin = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
-  // Hash de "enfermera123":
-  var hashNuevo = '1a2b3c4d5e6f'; // Reemplazar con hash real al probar
-
-  var res = doPost({ postData: { contents: JSON.stringify({
-    action: 'crear_usuario',
-    _adminId: 'usr_default_admin',
-    _adminToken: hashAdmin,
-    nombre: 'María García',
-    usuario: 'enfermera01',
-    passwordHash: hashNuevo,
-    rol: 'usuario',
-    codigoEBS: 'EBS-001',
-    estado: 'activo'
-  })}});
-  Logger.log('CREAR USUARIO → ' + res.getContent());
-}
-
-function testGuardarRegistro() {
-  var res = doPost({ postData: { contents: JSON.stringify({
-    action: 'guardar_registro',
-    _id: 'TEST_' + Date.now(),
-    _timestamp: new Date().toISOString(),
-    _status: 'Sincronizado',
-    _sincronizado: 'Sí',
-    _usuario: 'admin',
-    fecha_atencion: '2025-04-14',
-    eps: 'Coosalud',
-    nombre_apellido: 'Paciente Prueba',
-    documento: '1234567890',
-    fecha_nacimiento: '1985-06-15',
-    edad: '39 año(s)',
-    municipio: 'Ábrego',
-    codigo_ebs: 'EBS-001',
-    ciclo_vital: 'adultez',
-    ciclo_vital_label: 'Adultez (29-59 años)',
-    adu_consulta_med: 'Sí',
-    adu_tamizaje_salud_mental: 'No'
-  })}});
-  Logger.log('GUARDAR REGISTRO → ' + res.getContent());
+  var res  = doPost({ postData:{ contents: JSON.stringify({ action:'login', usuario:'admin', passwordHash:hash }) } });
+  Logger.log('LOGIN: ' + res.getContent());
 }
 
 function testListarUsuarios() {
-  var hashAdmin = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
-  var res = doPost({ postData: { contents: JSON.stringify({
-    action: 'listar_usuarios',
-    _adminId: 'usr_default_admin',
-    _adminToken: hashAdmin
-  })}});
-  Logger.log('USUARIOS → ' + res.getContent());
+  var hash = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
+  var res  = doPost({ postData:{ contents: JSON.stringify({
+    action:'listar_usuarios',
+    _adminId:'usr_admin_default',
+    _adminToken: hash
+  }) } });
+  Logger.log('LISTAR: ' + res.getContent());
 }
 
-function testPing() {
-  var res = doGet({ parameter: { action: 'ping' } });
-  Logger.log('PING → ' + res.getContent());
+function testCrearUsuario() {
+  var hashAdmin = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9';
+  // SHA-256 de 'enfermera123' — cámbialo por el hash real si quieres otra contraseña
+  var hashNuevo = 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3';
+  var res = doPost({ postData:{ contents: JSON.stringify({
+    action:'crear_usuario',
+    _adminId:'usr_admin_default',
+    _adminToken: hashAdmin,
+    nombre:'Enfermera Prueba',
+    usuario:'enfermera01',
+    passwordHash: hashNuevo,
+    rol:'usuario',
+    codigoEBS:'EBS-001',
+    estado:'activo'
+  }) } });
+  Logger.log('CREAR: ' + res.getContent());
+}
+
+function testGuardarRegistro() {
+  var res = doPost({ postData:{ contents: JSON.stringify({
+    action:'guardar_registro',
+    _id:'TEST_'+Date.now(),
+    _timestamp: new Date().toISOString(),
+    _status:'Sincronizado',
+    _sincronizado:'Sí',
+    _usuario:'admin',
+    fecha_atencion:'2025-04-14',
+    eps:'Coosalud',
+    nombre_apellido:'Paciente Prueba',
+    documento:'1234567',
+    municipio:'Ábrego',
+    codigo_ebs:'EBS-001',
+    ciclo_vital:'adultez',
+    ciclo_vital_label:'Adultez',
+    adu_consulta_med:'Sí'
+  }) } });
+  Logger.log('REGISTRO: ' + res.getContent());
 }
