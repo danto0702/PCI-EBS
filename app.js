@@ -79,8 +79,10 @@ document.getElementById('form-login').addEventListener('submit', async function 
       return;
     }
 
-    setSession(data.usuario);
-    mostrarApp(data.usuario);
+    // Guardar el hash en la sesión para usarlo como token en peticiones admin
+    const sesion = { ...data.usuario, _hash: hash };
+    setSession(sesion);
+    mostrarApp(sesion);
 
   } catch (err) {
     console.error(err);
@@ -132,17 +134,11 @@ function mostrarApp(usr) {
 // GESTIÓN DE USUARIOS (Admin)
 // ═══════════════════════════════════════════════════════════════
 
-// Token de autenticación admin para peticiones protegidas
+// Token de autenticación admin — usa el hash guardado al hacer login
 function adminPayload() {
   const s = getSession();
-  return s ? { _adminId: s.id, _adminToken: s.passwordHash || s._hash } : {};
-}
-
-// Guardamos el hash en sesión para usarlo como token admin
-// Lo almacenamos al hacer login
-async function enrichSession(usr, rawHash) {
-  usr._hash = rawHash; // reutilizamos el hash como token de identidad
-  setSession(usr);
+  if (!s) return {};
+  return { _adminId: s.id, _adminToken: s._hash };
 }
 
 let _tablaUsuariosCache = [];
