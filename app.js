@@ -4,7 +4,7 @@
 // ============================================================
 'use strict';
 
-const GAS_URL     = 'https://script.google.com/macros/s/AKfycbzfK5_AGFmLvcyFjISkOK08GgIXYPFhfvh1EOWeEi0FhTxqYaI4BWuAWX17BkGFAGMvxGA/exec';
+const GAS_URL     = 'https://script.google.com/macros/s/AKfycbw5qIea5dvWcb_bJmNXOyvDb0cYCYSoW_qcgHdsGuwQ-2HAm7thdOXJP5MPQfoXXIMOuA/exec';
 const STORAGE_KEY = 'pci_pendientes';
 const SESSION_KEY = 'pci_session';
 
