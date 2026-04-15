@@ -7,6 +7,7 @@
 const GAS_URL     = 'https://script.google.com/macros/s/AKfycbw5qIea5dvWcb_bJmNXOyvDb0cYCYSoW_qcgHdsGuwQ-2HAm7thdOXJP5MPQfoXXIMOuA/exec';
 const STORAGE_KEY = 'pci_pendientes';
 const SESSION_KEY = 'pci_session';
+const OFFLINE_CRED_KEY = 'pci_offline_credentials'; // credenciales en caché para login offline
 
 // ─── SERVICE WORKER ──────────────────────────────────────────
 if ('serviceWorker' in navigator) {
@@ -73,6 +74,36 @@ function clearSession() { sessionStorage.removeItem(SESSION_KEY); }
 // ─── TOKEN ADMIN ─────────────────────────────────────────────
 // El servidor devuelve _hash en la respuesta de login.
 // Lo guardamos en sesión y lo enviamos en cada petición admin.
+
+// ─── CREDENCIALES OFFLINE ─────────────────────────────────────
+// Guarda los datos del usuario en localStorage tras un login online exitoso,
+// para permitir autenticación cuando no haya conexión a internet.
+function guardarCredencialesOffline(usuario, hash, usuario_data) {
+  try {
+    localStorage.setItem(OFFLINE_CRED_KEY, JSON.stringify({ usuario, hash, usuario_data }));
+  } catch (e) {
+    console.warn('[Offline] No se pudieron guardar credenciales locales:', e);
+  }
+}
+
+// Intenta autenticar al usuario usando las credenciales guardadas en localStorage.
+// Retorna true si el login fue exitoso, false si no hay caché o las credenciales no coinciden.
+function intentarLoginOffline(usrVal, hash) {
+  try {
+    const raw = localStorage.getItem(OFFLINE_CRED_KEY);
+    if (!raw) return false;
+    const cred = JSON.parse(raw);
+    if (cred.usuario !== usrVal || cred.hash !== hash) return false;
+    const sesion = { ...cred.usuario_data, _hash: hash, _offline_login: true };
+    setSession(sesion);
+    mostrarApp(sesion);
+    showToast('📴 Modo sin conexión — los registros se sincronizarán al recuperar internet', 'warning');
+    return true;
+  } catch (e) {
+    console.warn('[Offline] Error al validar credenciales locales:', e);
+    return false;
+  }
+}
 function tokenAdmin() {
   const s = getSession();
   if (!s) return {};
@@ -93,9 +124,20 @@ document.getElementById('form-login').addEventListener('submit', async function(
   btn.innerHTML = '<div class="spinner"></div>&nbsp;Verificando...';
   btn.disabled  = true;
 
+  const hash = await sha256(pwdVal);
+
+  // ── Sin conexión: validar contra credenciales guardadas localmente ───
+  if (!navigator.onLine) {
+    if (intentarLoginOffline(usrVal, hash)) return;
+    errEl.textContent = 'Sin conexión a internet. Inicia sesión online al menos una vez para habilitar el acceso sin internet.';
+    errEl.classList.remove('hidden');
+    btn.innerHTML = 'Ingresar';
+    btn.disabled  = false;
+    return;
+  }
+
   try {
-    const hash = await sha256(pwdVal);
-    const data = await gasPost({ action:'login', usuario:usrVal, passwordHash:hash });
+        const data = await gasPost({ action:'login', usuario:usrVal, passwordHash:hash });
 
     if (!data.ok) {
       errEl.textContent = data.error || 'Credenciales incorrectas';
@@ -109,8 +151,10 @@ document.getElementById('form-login').addEventListener('submit', async function(
     if (!sesion._hash) sesion._hash = hash; // fallback por si acaso
     setSession(sesion);
     mostrarApp(sesion);
+    guardarCredencialesOffline(usrVal, hash, data.usuario);
 
   } catch(err) {
+    if (intentarLoginOffline(usrVal, hash)) return;
     errEl.textContent = 'Error de conexión: ' + err.message;
     errEl.classList.remove('hidden');
     btn.innerHTML = 'Ingresar'; btn.disabled = false;
