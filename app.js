@@ -155,8 +155,10 @@ document.getElementById('form-login').addEventListener('submit', async function(
 
   } catch(err) {
     if (intentarLoginOffline(usrVal, hash)) return;
-    errEl.textContent = 'Error de conexión: ' + err.message;
-    errEl.classList.remove('hidden');
+    errEl.textContent = localStorage.getItem(OFFLINE_CRED_KEY)
+      ? 'Sin conexión al servidor — credenciales incorrectas.'
+      : 'Sin conexión al servidor. Inicia sesión online al menos una vez para habilitar el acceso sin internet.'; 
+       errEl.classList.remove('hidden');
     btn.innerHTML = 'Ingresar'; btn.disabled = false;
   }
 });
