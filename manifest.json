@@ -2,13 +2,13 @@
   "name": "PCI App – ESE Hospital Regional Noroccidental",
   "short_name": "PCI App",
   "description": "Planes de Cuidado Individual por Ciclo Vital – Resolución 3280 de 2018",
-  "start_url": "/index.html",
+  "start_url": "/PCI-EBS/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#f0f4f8",
   "theme_color": "#0f4c81",
   "lang": "es-CO",
-  "scope": "/",
+  "scope": "/PCI-EBS/",
   "categories": ["health", "medical", "productivity"],
   "icons": [
     {
@@ -66,7 +66,7 @@
       "name": "Nuevo Registro",
       "short_name": "Nuevo",
       "description": "Abrir formulario de nuevo Plan de Cuidado Individual",
-      "url": "/index.html#nuevo",
+      "url": "/PCI-EBS/#nuevo",
       "icons": [{ "src": "icons/icon-96.png", "sizes": "96x96" }]
     }
   ]
