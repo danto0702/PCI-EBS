@@ -11,10 +11,35 @@ const SESSION_KEY = 'pci_session';
 // ─── SERVICE WORKER ──────────────────────────────────────────
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js').catch(e => console.warn('[SW]', e));
+    navigator.serviceWorker.register('service-worker.js')
+      .then(r => {
+        console.log('[SW] Registrado:', r.scope);
+        // Escuchar mensajes del SW para Background Sync
+        navigator.serviceWorker.addEventListener('message', evt => {
+          if (evt.data && evt.data.type === 'SW_SYNC_REQUEST') {
+            console.log('[BgSync] Solicitud de sync desde SW');
+            syncPendingRecords(true);
+          }
+        });
+      })
+      .catch(e => console.warn('[SW] Error:', e));
   });
 }
 
+// ─── BACKGROUND SYNC: registrar tag cuando hay registros pendientes ──
+async function registrarBgSync() {
+  try {
+    if ('serviceWorker' in navigator && 'SyncManager' in window) {
+      const reg = await navigator.serviceWorker.ready;
+      await reg.sync.register('pci-sync-pending');
+      console.log('[BgSync] Tag registrado');
+    }
+  } catch (e) {
+    // Background Sync no disponible (ej. iOS Safari)
+    // La sync por evento 'online' cubre este caso igualmente
+    console.warn('[BgSync] No disponible:', e.message);
+  }
+}
 // ─── SHA-256 ─────────────────────────────────────────────────
 async function sha256(texto) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto));
@@ -405,10 +430,10 @@ function eliminarLocal(i) {
   actualizarContadores(); showToast('Eliminado','info');
 }
 
-async function syncPendingRecords() {
-  if (!navigator.onLine) { showToast('Sin conexión','error'); return; }
+async function syncPendingRecords(silencioso = false) {
+  if (!navigator.onLine) { if (!silencioso) showToast('Sin conexión','error'); return; }
   const pend = getPendientes();
-  if (!pend.length) { showToast('Sin registros pendientes','info'); return; }
+  if (!pend.length) { if (!silencioso) showToast('Sin registros pendientes','info'); return; }
 
   const btn = document.getElementById('btn-sync');
   if (btn) btn.innerHTML = '<div class="spinner"></div><span>Sincronizando...</span>';
@@ -496,7 +521,8 @@ document.getElementById('pci-form').addEventListener('submit', async function(e)
   reg._status = 'Pendiente'; reg._sincronizado = 'No'; reg.action = undefined;
   const pend = getPendientes(); pend.push(reg); setPendientes(pend);
   actualizarContadores();
-  showToast('Guardado localmente – se sincronizará con conexión','info');
+  registrarBgSync();
+      showToast('Guardado localmente – se sincronizará con conexión','info');
   limpiarFormulario();
   if (btnG) { btnG.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg> Guardar Registro'; btnG.disabled=false; }
 });
@@ -768,14 +794,25 @@ function showToast(msg,type='success'){
   setTimeout(()=>toast.classList.remove('show'),3400);
 }
 
-function actualizarConexion(){
-  const dot=document.getElementById('status-dot'),text=document.getElementById('status-text');
-  if(navigator.onLine){dot.className='w-2 h-2 rounded-full bg-green-400';text.textContent='En línea';if(getPendientes().length)syncPendingRecords();}
-  else{dot.className='w-2 h-2 rounded-full bg-yellow-400 animate-pulse';text.textContent='Sin conexión';showToast('Modo offline','info');}
+function actualizarConexion() {
+  const dot  = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+  if (navigator.onLine) {
+    if (dot)  dot.className   = 'w-2 h-2 rounded-full bg-green-400';
+    if (text) text.textContent = 'En linea';
+    const pendientes = getPendientes();
+    if (pendientes.length) {
+      showToast('Conexion restaurada - sincronizando ' + pendientes.length + ' registro(s)...', 'info');
+      syncPendingRecords(true);
+    }
+  } else {
+    if (dot)  dot.className   = 'w-2 h-2 rounded-full bg-yellow-400 animate-pulse';
+    if (text) text.textContent = 'Sin conexion';
+    showToast('Sin conexion - los registros se guardaran localmente', 'info');
+  }
 }
-window.addEventListener('online', actualizarConexion);
-window.addEventListener('offline',actualizarConexion);
-
+window.addEventListener('online',  actualizarConexion);
+window.addEventListener('offline', actualizarConexion);
 // ─── INIT ─────────────────────────────────────────────────────
 (function init(){
   actualizarConexion();
