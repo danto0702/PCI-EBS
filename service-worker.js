@@ -1,16 +1,16 @@
 // ============================================================
 // service-worker.js v2.1 – PCI App
 // ============================================================
-const CACHE_NAME = 'pci-app-v2.1.0';
+const CACHE_NAME = 'pci-app-v2.2.0';
 
 const APP_SHELL = [
-  '/',
-  '/index.html',
-  '/app.js',
-  '/manifest.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-];
+    '/PCI-EBS/',
+    '/PCI-EBS/index.html',
+    '/PCI-EBS/app.js',
+    '/PCI-EBS/manifest.json',
+    '/PCI-EBS/icons/icon-192.png',
+    '/PCI-EBS/icons/icon-512.png',
+  ];
 
 self.addEventListener('install', event => {
   console.log('[SW] Instalando:', CACHE_NAME);
