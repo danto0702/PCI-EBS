@@ -157,6 +157,10 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
+                <button id="btn-offline-cache" onclick="verificarAccesoOffline()" title="Estado de acceso offline" class="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 transition">
+          <div id="offline-cache-dot" class="w-2 h-2 rounded-full bg-gray-400"></div>
+          <span id="offline-cache-text" class="text-xs font-medium">Offline</span>
+        </button>
         <div id="status-bar" class="flex items-center gap-1.5 bg-white/10 rounded-full px-3 py-1">
           <div id="status-dot" class="w-2 h-2 rounded-full bg-green-400"></div>
           <span id="status-text" class="text-xs font-medium">En línea</span>
