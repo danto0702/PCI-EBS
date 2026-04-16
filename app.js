@@ -176,6 +176,26 @@ function logout() {
 }
 
 // ─── MOSTRAR APP ──────────────────────────────────────────────
+// Actualiza el indicador visual del botón offline en el header
+function actualizarEstadoOffline() {
+  var dot=document.getElementById('offline-cache-dot');
+  var txt=document.getElementById('offline-cache-text');
+  if(!dot||!txt)return;
+  var cached=localStorage.getItem(OFFLINE_CRED_KEY);
+  if(cached){dot.className='w-2 h-2 rounded-full bg-green-400';txt.textContent='Offline ✓';}
+  else{dot.className='w-2 h-2 rounded-full bg-yellow-400';txt.textContent='Offline —';}
+}
+
+// Botón: confirma cred. offline de la sesión activa
+function verificarAccesoOffline() {
+  var s=getSession();if(!s)return;
+  if(s._hash){
+    guardarCredencialesOffline(s.usuario,s._hash,Object.assign({},s,{_hash:undefined,_offline_login:undefined}));
+    actualizarEstadoOffline();
+    showToast('✅ Acceso offline guardado','success');
+  }else{showToast('⚠️ Iniciá sesión online para habilitar offline','warning');}
+}
+
 function mostrarApp(usr) {
   document.getElementById('view-login').classList.remove('active');
   document.getElementById('view-app').classList.add('active');
@@ -197,6 +217,7 @@ function mostrarApp(usr) {
     document.getElementById('fecha_atencion').value = hoy();
     actualizarContadores();
   }
+  actualizarEstadoOffline();
 }
 
 // ═══════════════════════════════════════════════════════════════
